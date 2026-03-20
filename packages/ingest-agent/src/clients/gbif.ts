@@ -31,10 +31,14 @@ interface GBIFResponse {
 
 // --- helpers ---
 
-function parseEventDate(raw: string | undefined): Date {
-  if (!raw) return new Date();
+function parseEventDate(raw: string | undefined): Date | null {
+  if (!raw) return null;
   const parsed = new Date(raw);
-  return isNaN(parsed.getTime()) ? new Date() : parsed;
+  if (isNaN(parsed.getTime())) {
+    console.warn("[ingest-agent] invalid GBIF eventDate:", raw);
+    return null;
+  }
+  return parsed;
 }
 
 function mapOccurrenceToSighting(occ: GBIFOccurrence): Sighting | null {
@@ -46,6 +50,10 @@ function mapOccurrenceToSighting(occ: GBIFOccurrence): Sighting | null {
   ) {
     return null;
   }
+  const observedAt = parseEventDate(occ.eventDate);
+  if (!observedAt) {
+    return null;
+  }
 
   const sighting: Sighting = {
     id: `gbif:${occ.key}`,
@@ -53,7 +61,7 @@ function mapOccurrenceToSighting(occ: GBIFOccurrence): Sighting | null {
     imageUrl: imageMedia.identifier,
     lat: occ.decimalLatitude,
     lng: occ.decimalLongitude,
-    observedAt: parseEventDate(occ.eventDate),
+    observedAt,
   };
 
   if (occ.occurrenceRemarks) {
@@ -122,7 +130,19 @@ export async function fetchOccurrences(boundingBox: BoundingBox): Promise<Sighti
       return sightings;
     }
 
-    const body = (await response.json()) as GBIFResponse;
+    const parsedBody: unknown = await response.json();
+    if (
+      typeof parsedBody !== "object" ||
+      parsedBody === null ||
+      !Array.isArray((parsedBody as GBIFResponse).results) ||
+      typeof (parsedBody as GBIFResponse).endOfRecords !== "boolean"
+    ) {
+      console.error(
+        `[ingest-agent] invalid GBIF response shape at offset ${offset} - aborting pagination`
+      );
+      return sightings;
+    }
+    const body = parsedBody as GBIFResponse;
 
     for (const occ of body.results) {
       const sighting = mapOccurrenceToSighting(occ);
