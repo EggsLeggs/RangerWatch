@@ -31,11 +31,51 @@ interface GBIFResponse {
 
 // --- helpers ---
 
-function parseEventDate(raw: string | undefined): Date | null {
+/** GBIF may return year-only, year-month, or slash ranges; reject those so we do not invent a false instant. */
+function isExactEventDateString(raw: string): boolean {
+  const t = raw.trim();
+  if (t.includes("/")) return false;
+  if (/^\d{4}$/.test(t)) return false;
+  if (/^\d{4}-\d{2}$/.test(t)) return false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return true;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(t)) return true;
+  return false;
+}
+
+function isGBIFOccurrence(value: unknown): value is GBIFOccurrence {
+  if (typeof value !== "object" || value === null) return false;
+  const o = value as Record<string, unknown>;
+  if (typeof o.key !== "number" || !Number.isFinite(o.key)) return false;
+  if (!Array.isArray(o.media)) return false;
+  for (const item of o.media) {
+    if (typeof item !== "object" || item === null) return false;
+    const m = item as Record<string, unknown>;
+    if (m.type !== undefined && typeof m.type !== "string") return false;
+    if (m.identifier !== undefined && typeof m.identifier !== "string") return false;
+  }
+  if (o.decimalLatitude !== undefined && typeof o.decimalLatitude !== "number") return false;
+  if (o.decimalLongitude !== undefined && typeof o.decimalLongitude !== "number") return false;
+  if (o.eventDate !== undefined && typeof o.eventDate !== "string") return false;
+  if (o.occurrenceRemarks !== undefined && typeof o.occurrenceRemarks !== "string") return false;
+  return true;
+}
+
+function parseEventDate(raw: string | undefined, occurrenceKey?: number): Date | null {
   if (!raw) return null;
-  const parsed = new Date(raw);
+  const trimmed = raw.trim();
+  if (!isExactEventDateString(trimmed)) {
+    console.warn(
+      `[ingest-agent] GBIF eventDate rejected (non-exact or unsupported format) key=${occurrenceKey ?? "unknown"}:`,
+      raw
+    );
+    return null;
+  }
+  const parsed = new Date(trimmed);
   if (isNaN(parsed.getTime())) {
-    console.warn("[ingest-agent] invalid GBIF eventDate:", raw);
+    console.warn(
+      `[ingest-agent] invalid GBIF eventDate key=${occurrenceKey ?? "unknown"}:`,
+      raw
+    );
     return null;
   }
   return parsed;
@@ -50,7 +90,7 @@ function mapOccurrenceToSighting(occ: GBIFOccurrence): Sighting | null {
   ) {
     return null;
   }
-  const observedAt = parseEventDate(occ.eventDate);
+  const observedAt = parseEventDate(occ.eventDate, occ.key);
   if (!observedAt) {
     return null;
   }
@@ -136,6 +176,7 @@ export async function fetchOccurrences(boundingBox: BoundingBox): Promise<Sighti
 
       for (const occ of body.results) {
         if (sightings.length >= MAX_RESULTS) break;
+        if (!isGBIFOccurrence(occ)) continue;
         const sighting = mapOccurrenceToSighting(occ);
         if (sighting !== null) sightings.push(sighting);
       }
