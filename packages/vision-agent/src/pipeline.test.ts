@@ -7,11 +7,13 @@ const baseSighting: Sighting = {
   imageUrl: "https://example.com/image.jpg",
   lat: 0,
   lng: 0,
-  timestamp: new Date().toISOString(),
+  observedAt: new Date(),
 };
 
 const baseClassified: ClassifiedSighting = {
   ...baseSighting,
+  species: "",
+  confidence: 0,
   invasive: false,
   taxonId: "12345",
   needsReview: false,
@@ -72,5 +74,23 @@ describe("processSighting", () => {
     expect(result.species).toBe("Ursus arctos");
     expect(result.confidence).toBe(0.85);
     expect(result.needsReview).toBe(false);
+  });
+
+  it("processSighting: classifySighting returns needsReview true with high confidence and known species, attachTaxon returns valid taxonId — applyThreshold preserves flag", async () => {
+    mock.module("./classify.js", () => ({
+      classifySighting: async () => ({
+        ...baseClassified,
+        species: "Panthera leo",
+        confidence: 0.9,
+        needsReview: true,
+      }),
+    }));
+    mock.module("./taxonomy.js", () => ({
+      attachTaxon: async (c: ClassifiedSighting) => ({ ...c, taxonId: "12345" }),
+    }));
+
+    const { processSighting } = await import("./pipeline.js");
+    const result = await processSighting(baseSighting);
+    expect(result.needsReview).toBe(true);
   });
 });

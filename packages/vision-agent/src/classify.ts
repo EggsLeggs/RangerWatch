@@ -91,7 +91,10 @@ export async function classifySighting(
       needsReview: false,
     };
 
-    await inspectOutput(fallback);
+    const blocked = await inspectOutput(fallback);
+    if (blocked) {
+      fallback.needsReview = true;
+    }
 
     return fallback;
   }
