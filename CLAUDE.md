@@ -74,7 +74,7 @@ GBIF API ─────────┘                        │              
 
 ## shared types
 
-defined in `shared/types.ts`, imported by all agents:
+defined in `@rangerwatch/shared` (see `packages/shared/src/index.ts`), imported by all agents:
 
 ```typescript
 Sighting         // raw observation from ingest (id, source, imageUrl, lat, lng, timestamp)
