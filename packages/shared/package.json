@@ -8,6 +8,9 @@
     ".": "./src/index.ts",
     "./package.json": "./package.json"
   },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  },
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
