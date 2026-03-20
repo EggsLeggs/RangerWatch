@@ -10,5 +10,11 @@
     "test": "bun test",
     "build": "tsc --outDir dist",
     "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^3.0.47",
+    "@rangerwatch/shared": "workspace:*",
+    "ai": "^6.0.133",
+    "zod": "^4.3.6"
   }
 }
