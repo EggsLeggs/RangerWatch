@@ -85,9 +85,10 @@ export async function fetchOccurrences(boundingBox: BoundingBox): Promise<Sighti
   if (token && !token.includes(":")) {
     console.warn("[ingest-agent] GBIF_TOKEN should be in \"username:password\" format for Basic auth");
   }
-  const headers: Record<string, string> = token
-    ? { Authorization: `Basic ${Buffer.from(token).toString("base64")}` }
-    : {};
+  const headers: Record<string, string> =
+    token && token.includes(":")
+      ? { Authorization: `Basic ${Buffer.from(token).toString("base64")}` }
+      : {};
 
   const sightings: Sighting[] = [];
   let offset = 0;
@@ -105,53 +106,54 @@ export async function fetchOccurrences(boundingBox: BoundingBox): Promise<Sighti
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
-    let response: Response;
     try {
-      response = await fetch(`${BASE_URL}/occurrence/search?${params}`, {
+      const response = await fetch(`${BASE_URL}/occurrence/search?${params}`, {
         headers,
         signal: controller.signal,
       });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        console.error(
+          `[ingest-agent] GBIF returned ${response.status} at offset ${offset} - aborting pagination\n${errBody}`
+        );
+        return sightings.slice(0, MAX_RESULTS);
+      }
+
+      const parsedBody: unknown = await response.json();
+      if (
+        typeof parsedBody !== "object" ||
+        parsedBody === null ||
+        !Array.isArray((parsedBody as GBIFResponse).results) ||
+        typeof (parsedBody as GBIFResponse).endOfRecords !== "boolean"
+      ) {
+        console.error(
+          `[ingest-agent] invalid GBIF response shape at offset ${offset} - aborting pagination`
+        );
+        return sightings.slice(0, MAX_RESULTS);
+      }
+      const body = parsedBody as GBIFResponse;
+
+      for (const occ of body.results) {
+        if (sightings.length >= MAX_RESULTS) break;
+        const sighting = mapOccurrenceToSighting(occ);
+        if (sighting !== null) sightings.push(sighting);
+      }
+
+      if (body.endOfRecords) break;
+      if (sightings.length >= MAX_RESULTS) break;
+      offset += PAGE_LIMIT;
     } catch (err) {
-      clearTimeout(timeout);
       if (err instanceof Error && err.name === "AbortError") {
         console.error(`[ingest-agent] GBIF request timed out at offset ${offset}`);
       } else {
         console.error(`[ingest-agent] network error on GBIF offset ${offset}:`, err);
       }
-      return sightings;
+      return sightings.slice(0, MAX_RESULTS);
+    } finally {
+      clearTimeout(timeout);
     }
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      const body = await response.text();
-      console.error(
-        `[ingest-agent] GBIF returned ${response.status} at offset ${offset} - aborting pagination\n${body}`
-      );
-      return sightings;
-    }
-
-    const parsedBody: unknown = await response.json();
-    if (
-      typeof parsedBody !== "object" ||
-      parsedBody === null ||
-      !Array.isArray((parsedBody as GBIFResponse).results) ||
-      typeof (parsedBody as GBIFResponse).endOfRecords !== "boolean"
-    ) {
-      console.error(
-        `[ingest-agent] invalid GBIF response shape at offset ${offset} - aborting pagination`
-      );
-      return sightings;
-    }
-    const body = parsedBody as GBIFResponse;
-
-    for (const occ of body.results) {
-      const sighting = mapOccurrenceToSighting(occ);
-      if (sighting !== null) sightings.push(sighting);
-    }
-
-    if (body.endOfRecords) break;
-    offset += PAGE_LIMIT;
   }
 
-  return sightings;
+  return sightings.slice(0, MAX_RESULTS);
 }
