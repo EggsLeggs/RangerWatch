@@ -3,9 +3,15 @@
 // throws at load time when it is absent, which would prevent the graceful
 // null-return path required by this client. Dotenv loading is the
 // responsibility of the app entry point.
-import type { BoundingBox } from "../types.js";
+import type { BoundingBox } from "@rangerwatch/shared";
 
 const BASE_URL = "https://api.iucnredlist.org/api/v4";
+
+const IUCN_FETCH_TIMEOUT_MS = 5000;
+const CIVIC_TIMEOUT_MS = 3000;
+
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 200;
 
 // ---------------------------------------------------------------------------
 // Internal types — v4 API response shapes
@@ -14,9 +20,40 @@ const BASE_URL = "https://api.iucnredlist.org/api/v4";
 // [key: string]: unknown to satisfy strict mode without any.
 // ---------------------------------------------------------------------------
 
+/** IUCN Red List category codes (current scheme). */
+export type IucnCategory =
+  | "EX"
+  | "EW"
+  | "CR"
+  | "EN"
+  | "VU"
+  | "NT"
+  | "LC"
+  | "DD"
+  | "NE";
+
+const IUCN_CATEGORY_CODES: readonly IucnCategory[] = [
+  "EX",
+  "EW",
+  "CR",
+  "EN",
+  "VU",
+  "NT",
+  "LC",
+  "DD",
+  "NE",
+] as const;
+
+function normalizeIucnCategory(code: string): IucnCategory {
+  const upper = code.trim().toUpperCase();
+  return (IUCN_CATEGORY_CODES as readonly string[]).includes(upper)
+    ? (upper as IucnCategory)
+    : "DD";
+}
+
 export interface IucnSpeciesResult {
   speciesName: string;
-  category: string;
+  category: IucnCategory;
   rangeBounds?: BoundingBox;
 }
 
@@ -125,14 +162,48 @@ const COUNTRY_CENTROIDS: Record<string, { lat: number; lng: number }> = {
 };
 
 const RANGE_BUFFER_DEG = 5;
-const MAX_RANGE_COUNTRIES = 5;
 
 // ---------------------------------------------------------------------------
 // Module-level cache keyed on lowercase species name.
-// null = confirmed not found or lookup failed; undefined = not yet looked up.
 // ---------------------------------------------------------------------------
 
-const cache = new Map<string, IucnSpeciesResult | null>();
+type SpeciesCacheEntry = {
+  value: IucnSpeciesResult | null;
+  expiresAt: number;
+  errorType?: "not_found";
+};
+
+const cache = new Map<string, SpeciesCacheEntry>();
+
+function getMcpPort(): number {
+  const raw = process.env.MCP_PORT?.trim();
+  if (!raw) return 3001;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 && n <= 65535 ? n : 3001;
+}
+
+function cacheGet(key: string): IucnSpeciesResult | null | undefined {
+  const entry = cache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return undefined;
+  }
+  return entry.value;
+}
+
+function cacheSet(
+  key: string,
+  value: IucnSpeciesResult | null,
+  ttlMs: number,
+  errorType?: "not_found"
+): void {
+  if (!cache.has(key) && cache.size >= MAX_CACHE_ENTRIES) {
+    const first = cache.keys().next().value;
+    if (first !== undefined) cache.delete(first);
+  }
+  cache.set(key, { value, expiresAt: Date.now() + ttlMs, errorType });
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -144,6 +215,61 @@ function getToken(): string | undefined {
 
 function authHeaders(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
+}
+
+/** Returns true when the payload must be rejected (blocked by Civic). */
+async function inspectInputSpeciesName(speciesName: string): Promise<boolean> {
+  try {
+    const response = await fetch(`http://localhost:${getMcpPort()}/tools/call`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: {
+          name: "inspect_input",
+          arguments: { payload: speciesName },
+        },
+      }),
+      signal: AbortSignal.timeout(CIVIC_TIMEOUT_MS),
+    });
+    if (!response.ok) return false;
+    const result = (await response.json()) as {
+      result?: { blocked?: boolean };
+    };
+    return result.result?.blocked === true;
+  } catch {
+    console.warn(
+      "[threat-agent] civic-mcp inspect_input unavailable; proceeding without guardrail"
+    );
+    return false;
+  }
+}
+
+async function fetchIucnWithTimeout(
+  url: string,
+  token: string,
+  logContext: string
+): Promise<Response | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), IUCN_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      headers: authHeaders(token),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return response;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof Error && err.name === "AbortError") {
+      console.error(`[threat-agent] IUCN request timed out (${logContext})`);
+      return null;
+    }
+    console.error(`[threat-agent] network error (${logContext}):`, err);
+    return null;
+  }
 }
 
 // Split "Panthera leo" → { genus: "Panthera", epithet: "leo" }.
@@ -171,42 +297,45 @@ function findLatestGlobalAssessment(
   return assessments.find((a) => a.latest) ?? null;
 }
 
+type FetchTaxaResult =
+  | { ok: true; data: IucnTaxaResponse }
+  | { ok: false; kind: "not_found" | "transient" };
+
 async function fetchTaxa(
   genus: string,
   epithet: string,
   infra: string | undefined,
   token: string
-): Promise<IucnTaxaResponse | null> {
+): Promise<FetchTaxaResult> {
   const params = new URLSearchParams({ genus_name: genus, species_name: epithet });
   if (infra) params.set("infra_name", infra);
 
-  let response: Response;
-  try {
-    response = await fetch(`${BASE_URL}/taxa/scientific_name?${params}`, {
-      headers: authHeaders(token),
-    });
-  } catch (err) {
-    console.error(`[threat-agent] network error fetching IUCN taxa for "${genus} ${epithet}":`, err);
-    return null;
-  }
+  const url = `${BASE_URL}/taxa/scientific_name?${params}`;
+  const response = await fetchIucnWithTimeout(
+    url,
+    token,
+    `IUCN taxa for "${genus} ${epithet}"`
+  );
+  if (!response) return { ok: false, kind: "transient" };
 
-  if (response.status === 404) return null;
+  if (response.status === 404) return { ok: false, kind: "not_found" };
 
   if (!response.ok) {
     console.error(
       `[threat-agent] IUCN taxa endpoint returned ${response.status} for "${genus} ${epithet}"`
     );
-    return null;
+    return { ok: false, kind: "transient" };
   }
 
   try {
-    return (await response.json()) as IucnTaxaResponse;
+    const data = (await response.json()) as IucnTaxaResponse;
+    return { ok: true, data };
   } catch (err) {
     console.error(
       `[threat-agent] failed to parse IUCN taxa response for "${genus} ${epithet}":`,
       err
     );
-    return null;
+    return { ok: false, kind: "transient" };
   }
 }
 
@@ -217,18 +346,12 @@ async function rangeFromAssessmentId(
   assessmentId: number,
   token: string
 ): Promise<BoundingBox | null> {
-  let response: Response;
-  try {
-    response = await fetch(`${BASE_URL}/assessment/${assessmentId}`, {
-      headers: authHeaders(token),
-    });
-  } catch (err) {
-    console.error(
-      `[threat-agent] network error fetching IUCN assessment ${assessmentId}:`,
-      err
-    );
-    return null;
-  }
+  const response = await fetchIucnWithTimeout(
+    `${BASE_URL}/assessment/${assessmentId}`,
+    token,
+    `IUCN assessment ${assessmentId}`
+  );
+  if (!response) return null;
 
   if (!response.ok) {
     console.error(
@@ -256,9 +379,14 @@ async function rangeFromAssessmentId(
   return deriveBoundingBox(codes);
 }
 
+/**
+ * Builds an axis-aligned box from country centroids in {@link COUNTRY_CENTROIDS}.
+ * Uses every country code returned by the assessment (no cap) so wide-ranging
+ * species are not clipped; accuracy is still limited to centroid + buffer
+ * approximation (not IUCN polygons).
+ */
 function deriveBoundingBox(countryCodes: string[]): BoundingBox | null {
   const centroids = countryCodes
-    .slice(0, MAX_RANGE_COUNTRIES)
     .map((code) => COUNTRY_CENTROIDS[code.toUpperCase()])
     .filter((c): c is { lat: number; lng: number } => c !== undefined);
 
@@ -280,19 +408,8 @@ function deriveBoundingBox(countryCodes: string[]): BoundingBox | null {
 // ---------------------------------------------------------------------------
 
 export async function getRangeBounds(speciesName: string): Promise<BoundingBox | null> {
-  const token = getToken();
-  if (!token) return null;
-
-  const parsed = parseSpeciesName(speciesName);
-  if (!parsed) return null;
-
-  const taxa = await fetchTaxa(parsed.genus, parsed.epithet, parsed.infra, token);
-  if (!taxa) return null;
-
-  const assessment = findLatestGlobalAssessment(taxa.assessments);
-  if (!assessment) return null;
-
-  return rangeFromAssessmentId(assessment.assessment_id, token);
+  const result = await lookupSpecies(speciesName);
+  return result?.rangeBounds ?? null;
 }
 
 export async function lookupSpecies(speciesName: string): Promise<IucnSpeciesResult | null> {
@@ -300,8 +417,12 @@ export async function lookupSpecies(speciesName: string): Promise<IucnSpeciesRes
 
   if (key === "unknown") return null;
 
-  if (cache.has(key)) {
-    return cache.get(key) ?? null;
+  const cached = cacheGet(key);
+  if (cached !== undefined) return cached;
+
+  if (await inspectInputSpeciesName(speciesName)) {
+    console.warn(`[threat-agent] civic inspect_input blocked lookup for "${speciesName}"`);
+    return null;
   }
 
   const token = getToken();
@@ -312,32 +433,34 @@ export async function lookupSpecies(speciesName: string): Promise<IucnSpeciesRes
 
   const parsed = parseSpeciesName(speciesName);
   if (!parsed) {
-    cache.set(key, null);
+    cacheSet(key, null, CACHE_TTL_MS, "not_found");
     return null;
   }
 
-  const taxa = await fetchTaxa(parsed.genus, parsed.epithet, parsed.infra, token);
-  if (!taxa) {
-    cache.set(key, null);
+  const taxaResult = await fetchTaxa(parsed.genus, parsed.epithet, parsed.infra, token);
+  if (!taxaResult.ok) {
+    if (taxaResult.kind === "not_found") {
+      cacheSet(key, null, CACHE_TTL_MS, "not_found");
+    }
     return null;
   }
+
+  const taxa = taxaResult.data;
 
   const assessment = findLatestGlobalAssessment(taxa.assessments);
   if (!assessment) {
-    cache.set(key, null);
+    cacheSet(key, null, CACHE_TTL_MS, "not_found");
     return null;
   }
 
-  // Reuse the assessment_id from the taxa fetch — avoids a second taxa request
-  // inside getRangeBounds.
   const rangeBounds = await rangeFromAssessmentId(assessment.assessment_id, token);
 
   const result: IucnSpeciesResult = {
     speciesName: taxa.taxon.scientific_name,
-    category: assessment.red_list_category_code,
+    category: normalizeIucnCategory(assessment.red_list_category_code),
     ...(rangeBounds !== null ? { rangeBounds } : {}),
   };
 
-  cache.set(key, result);
+  cacheSet(key, result, CACHE_TTL_MS);
   return result;
 }
