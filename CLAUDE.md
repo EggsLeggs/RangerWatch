@@ -48,7 +48,7 @@ GBIF API ─────────┘                        │              
 ### threat detection agent
 - looks up species conservation status via IUCN Red List API (`/api/v3/species/`)
 - validates sighting location against expected species range (IUCN polygons or bounding boxes)
-- scores each sighting 0–100 based on: out-of-range, nocturnal timing, human clustering near endangered species, invasive species first appearance
+- scores each sighting 0–100 based on out-of-range, nocturnal timing, human clustering near endangered species, and invasive species first appearance
 - classifies severity as `CRITICAL` (score ≥80 or CR/EN species out of range), `WARNING` (50–79 or invasive), or `INFO`
 - **civic**: calls `inspect_input` on civic-mcp server before each external API call, rejecting if injection patterns detected
 
@@ -74,7 +74,7 @@ GBIF API ─────────┘                        │              
 
 ## shared types
 
-defined in `@rangerwatch/shared` (see `packages/shared/src/index.ts`), imported by all agents:
+defined in `@rangerwatch/shared`, imported by all agents:
 
 ```typescript
 Sighting         // raw observation from ingest (id, source, imageUrl, lat, lng, timestamp)
@@ -261,5 +261,5 @@ problem → live iNaturalist data → alert firing on map → Civic strip showin
 - lowercase commit messages
 - typescript throughout, strict mode
 - discriminated unions and type guards preferred over class hierarchies
-- no em-dashes in comments or docs
+- prefer hyphens over em-dashes in comments/docs
 - keep responses and descriptions concise
