@@ -1,16 +1,9 @@
 {
-  "name": "@rangerwatch/shared",
+  "name": "@rangerwatch/alert-agent",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
-  "exports": {
-    ".": "./src/index.ts",
-    "./package.json": "./package.json"
-  },
-  "dependencies": {
-    "dotenv": "^17.2.3"
-  },
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",

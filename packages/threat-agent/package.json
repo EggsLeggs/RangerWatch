@@ -1,15 +1,14 @@
 {
-  "name": "@rangerwatch/shared",
+  "name": "@rangerwatch/threat-agent",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./package.json": "./package.json"
-  },
-  "dependencies": {
-    "dotenv": "^17.2.3"
+    ".": {
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
     "lint": "eslint src",
