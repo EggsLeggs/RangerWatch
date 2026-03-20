@@ -9,5 +9,12 @@
       "bun": "./src/index.ts",
       "default": "./dist/index.js"
     }
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "build": "tsc --outDir dist",
+    "clean": "rm -rf dist"
   }
 }
