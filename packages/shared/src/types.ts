@@ -50,8 +50,14 @@ export interface GuardrailResult {
   timestamp: Date;
 }
 
-export interface AgentEvent {
-  type: string;
-  payload: unknown;
+export interface NewSightingsPayload {
+  sightings: Sighting[];
+}
+
+export interface NewSightingsEvent {
+  type: "agent:new-sightings";
+  payload: NewSightingsPayload;
   timestamp: Date;
 }
+
+export type AgentEvent = NewSightingsEvent;
