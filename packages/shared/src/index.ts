@@ -1,2 +1,2 @@
 export * from "./types";
-export { getCivicToken } from "./civic-auth.js";
+export { getCivicToken, buildCivicHeaders } from "./civic-auth.js";

@@ -4,7 +4,7 @@
 // null-return path required by this client. Dotenv loading is the
 // responsibility of the app entry point.
 import type { BoundingBox } from "@rangerwatch/shared";
-import { getCivicToken } from "@rangerwatch/shared";
+import { buildCivicHeaders } from "@rangerwatch/shared";
 
 const BASE_URL = "https://api.iucnredlist.org/api/v4";
 
@@ -221,13 +221,9 @@ function authHeaders(token: string): Record<string, string> {
 /** Returns true when the payload must be rejected (blocked by Civic). */
 async function inspectInputSpeciesName(speciesName: string): Promise<boolean> {
   try {
-    const token = await getCivicToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
     const response = await fetch(`http://localhost:${getMcpPort()}/inspect_input`, {
       method: "POST",
-      headers,
+      headers: await buildCivicHeaders(),
       body: JSON.stringify({
         payload: speciesName,
         toolName: "iucn:lookupSpecies",

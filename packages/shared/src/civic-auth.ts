@@ -26,7 +26,7 @@ export async function getCivicToken(): Promise<string | null> {
     return cache.token;
   }
 
-  // Deduplicate concurrent calls — only one token request in flight at a time.
+  // Deduplicate concurrent calls - only one token request in flight at a time.
   if (inflightRequest) return inflightRequest;
 
   inflightRequest = fetchToken().finally(() => {
@@ -34,6 +34,17 @@ export async function getCivicToken(): Promise<string | null> {
   });
 
   return inflightRequest;
+}
+
+/**
+ * Builds the standard headers object for requests to civic-mcp.
+ * Sets Content-Type and conditionally adds Authorization if a token is available.
+ */
+export async function buildCivicHeaders(): Promise<Record<string, string>> {
+  const token = await getCivicToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
 }
 
 async function fetchToken(): Promise<string | null> {

@@ -21,7 +21,6 @@
       "name": "@rangerwatch/civic-mcp",
       "version": "0.0.0",
       "dependencies": {
-        "@civic/auth-mcp": "^0.3.0",
         "@civic/hook-common": "^0.9.0",
         "@rangerwatch/shared": "workspace:*",
         "dotenv": "^17.2.3",
@@ -91,8 +90,6 @@
     "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@4.0.21", "", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@standard-schema/spec": "^1.1.0", "eventsource-parser": "^3.0.6" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-MtFUYI1/8mgDvRmaBDjbLJPFFrMG777AvSgyIFQtZHIMzm88R/12vYBBpnk7pfiWLFE1DSZzY4WDYzGbKAcmiw=="],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
-
-    "@civic/auth-mcp": ["@civic/auth-mcp@0.3.0", "", { "dependencies": { "escape-html": "^1.0.3", "jose": "^6.0.11" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.26.0", "express": "^4.17.0 || ^5.0.0" }, "optionalPeers": ["express"] }, "sha512-TmCN6NPW+uJL73pOVK1EyBSSuXanpd4AHw0Cc664RofIIyNrci3jYGl8nAal9myGpaR7toImzPZt9G/cVcmV5w=="],
 
     "@civic/hook-common": ["@civic/hook-common@0.9.0", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.25.1", "@trpc/client": "^11.8.0", "@trpc/server": "^11.8.0", "superjson": "^2.2.6", "zod": "^4.2.1" } }, "sha512-asIUjGuRooAatSuQiOvSlFa07hJoXwJRetwWG+TZGgc747GghVJUdXcT/ZA+3Uiv5yhyVw9Vk7Xr/plOLwu4GA=="],
 

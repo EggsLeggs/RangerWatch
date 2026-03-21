@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { env } from "@rangerwatch/shared/env";
-import { getCivicToken } from "@rangerwatch/shared";
+import { buildCivicHeaders } from "@rangerwatch/shared";
 import type { AlertBoth, AlertWebhook } from "@rangerwatch/shared";
 import { alertEvents, ALERT_DISPATCHED } from "./events.js";
 
@@ -14,13 +14,9 @@ async function inspectAlertPayload(alert: AlertWebhook | AlertBoth): Promise<boo
   const observerNotes = alert.observerNotes ?? "";
   const payload = `species:${alert.species} notes:${observerNotes}`;
   try {
-    const token = await getCivicToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
     const response = await fetch(`http://localhost:${env.MCP_PORT}/inspect_input`, {
       method: "POST",
-      headers,
+      headers: await buildCivicHeaders(),
       body: JSON.stringify({ payload, toolName: "alert:dispatch" }),
       signal: AbortSignal.timeout(CIVIC_TIMEOUT_MS),
     });

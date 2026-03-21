@@ -1,5 +1,5 @@
 import type { GuardrailResult } from "@rangerwatch/shared";
-import { getCivicToken } from "@rangerwatch/shared";
+import { buildCivicHeaders } from "@rangerwatch/shared";
 
 const CIVIC_TIMEOUT_MS = 3000;
 
@@ -15,13 +15,9 @@ export async function inspectInput(
   toolName: string
 ): Promise<GuardrailResult> {
   try {
-    const token = await getCivicToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
     const response = await fetch(`http://localhost:${getMcpPort()}/inspect_input`, {
       method: "POST",
-      headers,
+      headers: await buildCivicHeaders(),
       body: JSON.stringify({ payload, toolName }),
       signal: AbortSignal.timeout(CIVIC_TIMEOUT_MS),
     });
@@ -36,13 +32,19 @@ export async function inspectInput(
       };
     }
     const result = (await response.json()) as GuardrailResult;
+    // timestamp arrives as a string from JSON - convert to Date for type safety
+    result.timestamp = new Date((result.timestamp as unknown) as string);
     if (result.blocked) {
       console.warn(
         `[threat-agent] civic inspect_input blocked toolName=${toolName} reason=${result.reason ?? "unspecified"}`
       );
     }
     return result;
-  } catch {
+  } catch (err) {
+    console.warn(
+      `[threat-agent] civic-mcp check failed (toolName=${toolName}):`,
+      err instanceof Error ? err.message : err
+    );
     return {
       input: payload,
       output: payload,
