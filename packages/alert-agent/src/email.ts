@@ -130,6 +130,11 @@ function plainTextFallback(alert: Alert): string {
 export async function dispatchEmail(alert: Alert): Promise<boolean> {
   if (alert.threatLevel !== ThreatLevel.CRITICAL) return true;
 
+  if (!env.RESEND_ENABLED) {
+    console.log("[alert-agent] email disabled RESEND_ENABLED=false");
+    return true;
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.ALERT_FROM_EMAIL;
   const to = process.env.ALERT_TO_EMAIL;
