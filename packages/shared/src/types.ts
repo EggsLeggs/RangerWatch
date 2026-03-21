@@ -96,6 +96,26 @@ export interface NewSightingsEvent {
   timestamp: Date;
 }
 
+export interface ClassifiedSightingsPayload {
+  sightings: ClassifiedSighting[];
+}
+
+export interface ClassifiedSightingsEvent {
+  type: "agent:classified-sightings";
+  payload: ClassifiedSightingsPayload;
+  timestamp: Date;
+}
+
+export interface ScoredSightingsPayload {
+  sightings: ScoredSighting[];
+}
+
+export interface ScoredSightingsEvent {
+  type: "agent:scored-sightings";
+  payload: ScoredSightingsPayload;
+  timestamp: Date;
+}
+
 export interface AlertDispatchedPayload {
   alert: Alert;
   method: "webhook";
@@ -107,4 +127,8 @@ export interface AlertDispatchedEvent {
   timestamp: Date;
 }
 
-export type AgentEvent = NewSightingsEvent | AlertDispatchedEvent;
+export type AgentEvent =
+  | NewSightingsEvent
+  | ClassifiedSightingsEvent
+  | ScoredSightingsEvent
+  | AlertDispatchedEvent;
