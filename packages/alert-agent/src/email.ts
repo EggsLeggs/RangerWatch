@@ -151,7 +151,7 @@ export async function dispatchEmail(alert: Alert): Promise<boolean> {
     const { error } = await resend.emails.send({
       from,
       to,
-      subject: `CRITICAL ALERT: ${escHtml(alert.species)} — RangerAI`,
+      subject: `CRITICAL ALERT: ${alert.species} — RangerAI`,
       html: buildHtml(alert),
       text: plainTextFallback(alert),
     });
