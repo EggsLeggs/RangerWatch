@@ -1,3 +1,1 @@
-// TODO: implement threat-agent package entrypoint.
-export const initThreatAgent = () => undefined;
-
+export { processSighting } from "./pipeline.js";
