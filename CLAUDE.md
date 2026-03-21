@@ -189,7 +189,7 @@ this is the architectural story for the Civic pitch: guardrails are not bolted o
 Next.js app with a dark forest aesthetic. key components:
 
 - **topbar** - RangerAI logo, live status indicator, zone count
-- **map panel** - Leaflet/Mapbox with colour-coded sighting pins (red=critical, amber=warning, green=info). click pin for species detail
+- **map panel** - Leaflet map with colour-coded sighting pins (red=critical, amber=warning, green=info). click pin for species detail. no API token required
 - **alert feed** - live-updating list sorted by severity then time. colour-coded cards with species, location, timestamp, severity badge
 - **species detail drawer** - slides in on alert click. shows species photo, IUCN status badge, confidence score, observation history, raw classification output
 - **guardrail strip** - persistent footer showing Civic active status, total tool calls audited, injections blocked this session
