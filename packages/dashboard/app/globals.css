@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom scrollbar */
+.ranger-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.ranger-scrollbar::-webkit-scrollbar-track {
+  background: #E8E5DE;
+}
+.ranger-scrollbar::-webkit-scrollbar-thumb {
+  background: #CBC8C0;
+  border-radius: 3px;
+}
+.ranger-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9A9790;
+}
+
+/* Pulse animation for live indicator */
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse-live {
+  animation: pulse-live 2s ease-in-out infinite;
+}
