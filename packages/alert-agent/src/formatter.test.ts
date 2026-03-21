@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { ThreatLevel } from "@rangerwatch/shared";
 import type { ScoredSighting } from "@rangerwatch/shared";
+import { isAlertBoth, isAlertWebhook } from "@rangerwatch/shared";
 import { formatAlert } from "./formatter";
 
 const baseSighting: ScoredSighting = {
@@ -34,7 +35,8 @@ describe("formatAlert", () => {
 
   it("CRITICAL formattedMessage contains SMS template for sms field", () => {
     const alert = formatAlert({ ...baseSighting, threatLevel: ThreatLevel.CRITICAL });
-    const msg = alert.formattedMessage as { sms: string; webhook: string };
+    if (!isAlertBoth(alert)) throw new Error("expected AlertBoth");
+    const msg = alert.formattedMessage;
     expect(typeof msg).toBe("object");
     expect(msg.sms).toContain("CRITICAL:");
     expect(msg.sms).toContain("Immediate review required.");
@@ -42,21 +44,24 @@ describe("formatAlert", () => {
 
   it("CRITICAL formattedMessage contains webhook template for webhook field", () => {
     const alert = formatAlert({ ...baseSighting, threatLevel: ThreatLevel.CRITICAL });
-    const msg = alert.formattedMessage as { sms: string; webhook: string };
+    if (!isAlertBoth(alert)) throw new Error("expected AlertBoth");
+    const msg = alert.formattedMessage;
     expect(msg.webhook).toContain("RANGERWATCH ALERT");
     expect(msg.webhook).toContain("Species:");
   });
 
   it("INFO formattedMessage is a webhook template string", () => {
     const alert = formatAlert({ ...baseSighting, threatLevel: ThreatLevel.INFO, anomalyScore: 10 });
+    if (!isAlertWebhook(alert)) throw new Error("expected AlertWebhook");
     expect(typeof alert.formattedMessage).toBe("string");
-    expect(alert.formattedMessage as string).toContain("RANGERWATCH ALERT");
-    expect(alert.formattedMessage as string).toContain("Species:");
+    expect(alert.formattedMessage).toContain("RANGERWATCH ALERT");
+    expect(alert.formattedMessage).toContain("Species:");
   });
 
   it("SMS message (CRITICAL sms field) is under 160 characters", () => {
     const alert = formatAlert({ ...baseSighting, threatLevel: ThreatLevel.CRITICAL });
-    const sms = (alert.formattedMessage as { sms: string }).sms;
+    if (!isAlertBoth(alert)) throw new Error("expected AlertBoth");
+    const sms = alert.formattedMessage.sms;
     expect(sms.length).toBeLessThan(160);
   });
 
@@ -68,19 +73,22 @@ describe("formatAlert", () => {
       iucnStatus: "Endangered (EN)",
     };
     const alert = formatAlert(longSighting);
-    const sms = (alert.formattedMessage as { sms: string }).sms;
+    if (!isAlertBoth(alert)) throw new Error("expected AlertBoth");
+    const sms = alert.formattedMessage.sms;
     expect(sms.length).toBeLessThan(160);
   });
 
   it("CRITICAL out-of-range sighting uses 'sighted out of range at' phrasing", () => {
     const alert = formatAlert({ ...baseSighting, threatLevel: ThreatLevel.CRITICAL, inRange: false });
-    const sms = (alert.formattedMessage as { sms: string }).sms;
+    if (!isAlertBoth(alert)) throw new Error("expected AlertBoth");
+    const sms = alert.formattedMessage.sms;
     expect(sms).toContain("sighted out of range at");
   });
 
   it("CRITICAL in-range sighting uses neutral 'detected at' phrasing", () => {
     const alert = formatAlert({ ...baseSighting, threatLevel: ThreatLevel.CRITICAL, inRange: true });
-    const sms = (alert.formattedMessage as { sms: string }).sms;
+    if (!isAlertBoth(alert)) throw new Error("expected AlertBoth");
+    const sms = alert.formattedMessage.sms;
     expect(sms).toContain("detected at");
     expect(sms).not.toContain("out of range");
   });

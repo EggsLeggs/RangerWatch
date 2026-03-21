@@ -47,16 +47,26 @@ function buildWebhookMessage(sighting: ScoredSighting): string {
 
 export function formatAlert(sighting: ScoredSighting): Alert {
   const dispatchMethod = dispatchMethodFor(sighting.threatLevel);
-  const formattedMessage =
-    dispatchMethod === "both"
-      ? { sms: buildSmsMessage(sighting), webhook: buildWebhookMessage(sighting) }
-      : buildWebhookMessage(sighting);
-
-  return {
+  const base = {
     ...sighting,
     alertId: crypto.randomUUID(),
-    formattedMessage,
     dispatchedAt: new Date(),
-    dispatchMethod,
+  };
+
+  if (dispatchMethod === "both") {
+    return {
+      ...base,
+      dispatchMethod: "both",
+      formattedMessage: {
+        sms: buildSmsMessage(sighting),
+        webhook: buildWebhookMessage(sighting),
+      },
+    };
+  }
+
+  return {
+    ...base,
+    dispatchMethod: "webhook",
+    formattedMessage: buildWebhookMessage(sighting),
   };
 }
