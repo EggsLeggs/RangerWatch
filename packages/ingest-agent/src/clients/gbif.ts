@@ -1,5 +1,4 @@
-import type { Sighting } from "@rangerwatch/shared";
-import type { BoundingBox } from "../types.js";
+import type { BoundingBox, Sighting } from "@rangerwatch/shared";
 
 const BASE_URL = "https://api.gbif.org/v1";
 const PAGE_LIMIT = 200;
