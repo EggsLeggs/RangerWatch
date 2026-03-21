@@ -2,12 +2,63 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { inspectPayloadForInjection } from "./injection.js";
 import type { GuardrailResult } from "@rangerwatch/shared";
 
-function readBody(req: IncomingMessage): Promise<string> {
+type AuditToolName = "inspect_input" | "inspect_output";
+type AuditEntry = { tool: AuditToolName; blocked: boolean; timestamp: Date };
+
+const sessionAudit: AuditEntry[] = [];
+
+export function audit_log(): {
+  calls: number;
+  blocks: number;
+  entries: AuditEntry[];
+} {
+  const calls = sessionAudit.length;
+  const blocks = sessionAudit.reduce((acc, e) => acc + (e.blocked ? 1 : 0), 0);
+  return { calls, blocks, entries: [...sessionAudit] };
+}
+
+class BodyTooLargeError extends Error {
+  public statusCode: number = 413;
+}
+
+function readBody(req: IncomingMessage, maxSizeBytes = 1_000_000): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (c) => chunks.push(c as Buffer));
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-    req.on("error", reject);
+    let total = 0;
+
+    const cleanup = () => {
+      req.off("data", onData);
+      req.off("end", onEnd);
+      req.off("error", onError);
+    };
+
+    const onData = (c: unknown) => {
+      const buf = c as Buffer;
+      total += buf.length;
+      if (total > maxSizeBytes) {
+        cleanup();
+        req.destroy();
+        reject(
+          new BodyTooLargeError(`request body too large (max ${maxSizeBytes} bytes)`)
+        );
+        return;
+      }
+      chunks.push(buf);
+    };
+
+    const onEnd = () => {
+      cleanup();
+      resolve(Buffer.concat(chunks).toString("utf8"));
+    };
+
+    const onError = (err: unknown) => {
+      cleanup();
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
+
+    req.on("data", onData);
+    req.on("end", onEnd);
+    req.on("error", onError);
   });
 }
 
@@ -19,6 +70,9 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 function handleInspectInputArgs(args: unknown): { blocked: boolean } {
   if (args === null || typeof args !== "object") {
     return inspectPayloadForInjection("");
+  }
+  if (Array.isArray(args)) {
+    return inspectPayloadForInjection(JSON.stringify(args));
   }
   const rec = args as Record<string, unknown>;
   const payload = rec.payload;
@@ -53,13 +107,25 @@ function handleToolsCall(body: unknown): { jsonrpc: string; id: unknown; result?
   }
 
   const name = (params as { name?: string }).name;
-  if (name !== "inspect_input") {
-    return { ...base, error: { code: -32601, message: `unknown tool: ${String(name)}` } };
+
+  if (name === "inspect_input") {
+    const args = (params as { arguments?: unknown }).arguments;
+    const { blocked } = handleInspectInputArgs(args);
+    sessionAudit.push({ tool: "inspect_input", blocked, timestamp: new Date() });
+    return { ...base, result: { blocked } };
   }
 
-  const args = (params as { arguments?: unknown }).arguments;
-  const { blocked } = handleInspectInputArgs(args);
-  return { ...base, result: { blocked } };
+  if (name === "inspect_output") {
+    const args = (params as { arguments?: unknown }).arguments;
+    const result = handleInspectOutputBody(args);
+    return { ...base, result };
+  }
+
+  if (name === "audit_log") {
+    return { ...base, result: audit_log() };
+  }
+
+  return { ...base, error: { code: -32601, message: `unknown tool: ${String(name)}` } };
 }
 
 function handleInspectOutputBody(body: unknown): GuardrailResult {
@@ -70,6 +136,7 @@ function handleInspectOutputBody(body: unknown): GuardrailResult {
     input = typeof p === "string" ? p : JSON.stringify(p ?? "");
   }
   const { blocked } = inspectPayloadForInjection(input);
+  sessionAudit.push({ tool: "inspect_output", blocked, timestamp });
   return {
     input,
     output: input,
@@ -81,6 +148,7 @@ function handleInspectOutputBody(body: unknown): GuardrailResult {
 }
 
 export function startCivicMcpServer(port: number): ReturnType<typeof createServer> {
+  sessionAudit.length = 0;
   const server = createServer(async (req, res) => {
     if (req.method !== "POST") {
       sendJson(res, 405, { error: "method not allowed" });
@@ -115,12 +183,15 @@ export function startCivicMcpServer(port: number): ReturnType<typeof createServe
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[civic-mcp] request error:", message);
-      sendJson(res, 500, { error: "internal error" });
+      const status = err instanceof BodyTooLargeError ? 413 : 500;
+      sendJson(res, status, { error: status === 413 ? message : "internal error" });
     }
   });
 
   server.listen(port, () => {
-    console.log(`[civic-mcp] listening on http://localhost:${port} (inspect_input: POST /tools/call)`);
+    console.log(
+      `[civic-mcp] listening on http://localhost:${port} (tools: inspect_input/audit_log; inspect_output: POST /inspect_output)`
+    );
   });
 
   return server;

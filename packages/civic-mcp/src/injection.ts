@@ -1,6 +1,6 @@
 /**
  * Heuristic prompt-injection / unsafe-content detection for guardrail tools.
- * Not a full classifier — flags imperative overrides, URLs, code fences, and common jailbreak tokens.
+ * Not a full classifier - flags imperative overrides, URLs, code fences, and common jailbreak tokens.
  */
 export function inspectPayloadForInjection(text: string): { blocked: boolean } {
   if (!text.trim()) {
