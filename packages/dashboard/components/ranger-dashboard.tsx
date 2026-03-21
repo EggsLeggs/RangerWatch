@@ -73,6 +73,10 @@ function useCountUp(target: number, duration: number = 1500) {
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    startTimeRef.current = null;
+    setCount(0);
+
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
     const animate = (timestamp: number) => {
@@ -411,7 +415,7 @@ function Sidebar({
     </div>
   );
 
-  if (breakpoint === "mobile") {
+  if (breakpoint === "mobile" || breakpoint === "tablet") {
     return (
       <>
         {isOpen && (
@@ -604,8 +608,9 @@ export default function RangerDashboard() {
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    async function fetchGuardrailMetrics() {
+    async function poll() {
       try {
         const res = await fetch("/api/guardrail-metrics");
         const data = (await res.json()) as {
@@ -626,15 +631,17 @@ export default function RangerDashboard() {
       } catch {
         /* keep previous values */
       } finally {
-        if (!cancelled) setGuardrailMetricsLoading(false);
+        if (!cancelled) {
+          setGuardrailMetricsLoading(false);
+          timeoutId = setTimeout(() => { void poll(); }, 15_000);
+        }
       }
     }
 
-    void fetchGuardrailMetrics();
-    const interval = setInterval(fetchGuardrailMetrics, 15_000);
+    void poll();
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      if (timeoutId !== null) clearTimeout(timeoutId);
     };
   }, []);
 
@@ -1033,7 +1040,7 @@ export default function RangerDashboard() {
               {guardrailActive ? "Guardrails Active" : "Guardrails Unavailable"}
             </span>
           </div>
-          <div className="hidden items-center gap-4 sm:flex">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <span className="rounded bg-ranger-border/50 px-2 py-0.5 font-mono text-xs uppercase tracking-widest text-ranger-muted">
               {guardrailMetricsLoading ? "—" : guardrailMetrics.totalCalls} calls audited
             </span>
