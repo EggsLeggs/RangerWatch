@@ -42,8 +42,8 @@ export function hasSeen(species: string, lat: number, lng: number): boolean {
 }
 
 export function markSeen(species: string, lat: number, lng: number): void {
-  evictStale();
   seenSpeciesCache.set(zoneKey(species, lat, lng), Date.now());
+  evictStale();
 }
 
 export function isNocturnal(observedAt: Date, lng: number): boolean {
