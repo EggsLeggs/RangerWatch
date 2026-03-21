@@ -14,10 +14,9 @@ const REQUIRED_ENV_KEYS = [
 
 const OPTIONAL_ENV_KEYS = [
   "INATURALIST_API_KEY",
-  "TWILIO_ACCOUNT_SID",
-  "TWILIO_AUTH_TOKEN",
-  "TWILIO_FROM_NUMBER",
-  "TWILIO_TO_NUMBER"
+  "RESEND_API_KEY",
+  "ALERT_FROM_EMAIL",
+  "ALERT_TO_EMAIL"
 ] as const;
 
 type RequiredEnvKey = (typeof REQUIRED_ENV_KEYS)[number];
@@ -78,10 +77,9 @@ export const env = {
   OPENAI_API_KEY: readRequiredEnv("OPENAI_API_KEY"),
   CIVIC_API_KEY: readRequiredEnv("CIVIC_API_KEY"),
   MCP_PORT: readMcpPort(),
-  TWILIO_ACCOUNT_SID: readOptionalEnv("TWILIO_ACCOUNT_SID"),
-  TWILIO_AUTH_TOKEN: readOptionalEnv("TWILIO_AUTH_TOKEN"),
-  TWILIO_FROM_NUMBER: readOptionalEnv("TWILIO_FROM_NUMBER"),
-  TWILIO_TO_NUMBER: readOptionalEnv("TWILIO_TO_NUMBER"),
+  RESEND_API_KEY: readOptionalEnv("RESEND_API_KEY"),
+  ALERT_FROM_EMAIL: readOptionalEnv("ALERT_FROM_EMAIL"),
+  ALERT_TO_EMAIL: readOptionalEnv("ALERT_TO_EMAIL"),
   WEBHOOK_URL: readWebhookUrl(process.env.WEBHOOK_URL)
 } as const;
 
