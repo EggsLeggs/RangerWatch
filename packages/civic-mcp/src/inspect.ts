@@ -103,6 +103,7 @@ export async function runInspection(
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    return { ...base, blocked: false, reason: `guardrail-error: ${msg}` };
+    console.error("[civic-mcp] inspection error — failing closed:", msg);
+    return { ...base, blocked: true, reason: `guardrail-error: ${msg}` };
   }
 }

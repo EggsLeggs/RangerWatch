@@ -26,12 +26,12 @@ const INJECTION_PATTERNS: readonly string[] = [
 ];
 
 // Matches email addresses (e.g. ranger.john@wildlife.org)
-const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
 
 // Matches phone numbers with + prefix or parenthesised area code.
 // Requires explicit + or () to avoid false-positives on ISO date strings
 // (e.g. 2026-03-21T05:20:33Z must NOT match).
-const PHONE_RE = /(\+\d[\d\s\-().]{7,}\d|\(\d{2,4}\)[\d\s\-]{5,}\d)/;
+const PHONE_RE = /(\+\d[\d\s().-]{7,}\d|\(\d{2,4}\)[\d\s-]{5,}\d)/;
 
 const MAX_BYTES = 100 * 1024; // 100 KB
 

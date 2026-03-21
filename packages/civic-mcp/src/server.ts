@@ -65,9 +65,20 @@ async function handleToolsCall(req: Request): Promise<Response> {
   const result: GuardrailResult = await runInspection(payload, toolName, endpoint);
   logEntry(result);
 
+  if (result.blocked) {
+    return new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: rpc.id,
+        error: { code: -32000, message: result.reason ?? "blocked", data: result },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   return new Response(
     JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
+    { status: 200, headers: { "Content-Type": "application/json" } },
   );
 }
 

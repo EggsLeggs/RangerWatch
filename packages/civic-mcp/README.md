@@ -28,7 +28,7 @@ Guardrail logic is implemented as a **Civic `AbstractHook` subclass** — the
 
 ### Lifecycle
 
-```
+```text
 Agent                    civic-mcp server             GuardrailHook
   │                            │                            │
   │── POST /inspect_input ────►│                            │
