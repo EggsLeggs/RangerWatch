@@ -25,6 +25,9 @@ export async function inspectAlert(alert: Alert): Promise<GuardrailResult> {
       }
     );
     clearTimeout(timer);
+    if (!res.ok) {
+      return { input: payload, output: "", blocked: false, reason: "civic-mcp unavailable", toolName: "alert:dispatch", timestamp: new Date() };
+    }
     const result = (await res.json()) as GuardrailResult;
     // Coerce timestamp string -> Date if civic-mcp returns ISO string
     if (typeof (result as unknown as { timestamp: unknown }).timestamp === "string") {
