@@ -2,6 +2,7 @@ import type { GuardrailResult } from "@rangerwatch/shared";
 import { buildCivicHeaders } from "@rangerwatch/shared";
 
 const CIVIC_TIMEOUT_MS = 3000;
+const GUARDED_FETCH_TIMEOUT_MS = 10_000;
 
 function getMcpPort(): number {
   const raw = process.env.MCP_PORT?.trim();
@@ -56,6 +57,25 @@ export async function inspectInput(
   }
 }
 
+/** Serialize a request body to a string for guardrail inspection. */
+function serializeBody(body: BodyInit | null | undefined): string | undefined {
+  if (body == null) return undefined;
+  if (typeof body === "string") return body;
+  if (body instanceof URLSearchParams) return body.toString();
+  if (body instanceof FormData) {
+    const parts: string[] = [];
+    body.forEach((value, key) => {
+      const v = value instanceof File ? `[File: ${value.name}]` : String(value);
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+    });
+    return parts.join("&");
+  }
+  if (body instanceof ArrayBuffer) return `[binary: ${body.byteLength} bytes]`;
+  if (ArrayBuffer.isView(body)) return `[binary: ${body.byteLength} bytes]`;
+  if (body instanceof Blob) return `[Blob: ${body.size} bytes type=${body.type || "unknown"}]`;
+  return "[non-serializable body]";
+}
+
 export async function guardedFetch(
   url: string,
   toolName: string,
@@ -63,12 +83,7 @@ export async function guardedFetch(
 ): Promise<Response | null> {
   // Inspect the full outbound request context, not just the URL, so the
   // guardrail can detect injection patterns in method, headers, or body.
-  const bodyText =
-    typeof options?.body === "string"
-      ? options.body
-      : options?.body != null
-        ? "[non-string body]"
-        : undefined;
+  const bodyText = serializeBody(options?.body);
 
   const requestPayload = JSON.stringify({
     url,
@@ -88,5 +103,22 @@ export async function guardedFetch(
     );
     return null;
   }
-  return fetch(url, options ?? {});
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GUARDED_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return response;
+  } catch (err) {
+    clearTimeout(timer);
+    const isAbort = err instanceof Error && err.name === "AbortError";
+    console.error(
+      isAbort
+        ? `[threat-agent] guardedFetch timed out (toolName=${toolName})`
+        : `[threat-agent] guardedFetch network error (toolName=${toolName}):`,
+      isAbort ? undefined : err instanceof Error ? err.message : err
+    );
+    return null;
+  }
 }
