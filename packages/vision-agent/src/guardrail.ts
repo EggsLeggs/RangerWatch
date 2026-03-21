@@ -1,9 +1,10 @@
 import type { ClassifiedSighting, GuardrailResult } from "@rangerwatch/shared";
-import { env } from "@rangerwatch/shared/env";
+import { readMcpPort } from "@rangerwatch/shared/mcp-port";
 import { z } from "zod";
 
 const CIVIC_TIMEOUT_MS = 3000;
 const TOOL_NAME = "inspect_output";
+const mcpPort = readMcpPort();
 
 const GuardrailResultSchema = z.object({
   input: z.string(),
@@ -27,7 +28,7 @@ export async function inspectOutput(
 
   try {
     const response = await fetch(
-      `http://localhost:${env.MCP_PORT}/${TOOL_NAME}`,
+      `http://localhost:${mcpPort}/${TOOL_NAME}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
