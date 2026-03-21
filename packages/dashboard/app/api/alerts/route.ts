@@ -46,7 +46,25 @@ function broadcast(payload: unknown) {
   }
 }
 
+function isAuthorized(req: Request): boolean {
+  const secret = process.env.DASHBOARD_ALERT_API_KEY?.trim();
+  if (!secret) {
+    return true;
+  }
+  const auth = req.headers.get("authorization");
+  const apiKey = req.headers.get("x-api-key");
+  const bearer =
+    auth?.startsWith("Bearer ") || auth?.startsWith("bearer ")
+      ? auth.slice(7).trim()
+      : null;
+  return bearer === secret || apiKey === secret;
+}
+
 export async function POST(req: Request) {
+  if (!isAuthorized(req)) {
+    return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -69,10 +87,13 @@ export async function POST(req: Request) {
   return Response.json({ ok: true, id: body.alertId });
 }
 
+const HEARTBEAT_MS = 30_000;
+
 export async function GET() {
   const encoder = new TextEncoder();
   const clients = getSseClients();
   let sendRef: SseSender | null = null;
+  let heartbeatId: ReturnType<typeof setInterval> | null = null;
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -86,8 +107,15 @@ export async function GET() {
       sendRef = send;
       clients.add(send);
       send({ type: "connected", at: new Date().toISOString() });
+      heartbeatId = setInterval(() => {
+        send({ type: "heartbeat", at: new Date().toISOString() });
+      }, HEARTBEAT_MS);
     },
     cancel() {
+      if (heartbeatId !== null) {
+        clearInterval(heartbeatId);
+        heartbeatId = null;
+      }
       if (sendRef) {
         clients.delete(sendRef);
         sendRef = null;

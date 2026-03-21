@@ -149,13 +149,21 @@ const zoneHealthData = [
   { name: "Southern Scrub", coverage: 58, color: "#B86F0A" },
 ];
 
-const INITIAL_RECENT_SIGHTINGS = [
-  { zone: "ZN-01", species: "African Elephant", threat: "INFO", time: "2 mins ago" },
-  { zone: "ZN-03", species: "Lion Pride", threat: "WARNING", time: "8 mins ago" },
-  { zone: "ZN-02", species: "Cape Buffalo", threat: "INFO", time: "15 mins ago" },
-  { zone: "ZN-07", species: "Leopard", threat: "CRITICAL", time: "22 mins ago" },
-  { zone: "ZN-04", species: "Cheetah", threat: "WARNING", time: "31 mins ago" },
-  { zone: "ZN-09", species: "Black Rhino", threat: "CRITICAL", time: "45 mins ago" },
+interface RecentSightingRow {
+  id: string;
+  zone: string;
+  species: string;
+  threat: string;
+  time: string;
+}
+
+const INITIAL_RECENT_SIGHTINGS: RecentSightingRow[] = [
+  { id: "init-0", zone: "ZN-01", species: "African Elephant", threat: "INFO", time: "2 mins ago" },
+  { id: "init-1", zone: "ZN-03", species: "Lion Pride", threat: "WARNING", time: "8 mins ago" },
+  { id: "init-2", zone: "ZN-02", species: "Cape Buffalo", threat: "INFO", time: "15 mins ago" },
+  { id: "init-3", zone: "ZN-07", species: "Leopard", threat: "CRITICAL", time: "22 mins ago" },
+  { id: "init-4", zone: "ZN-04", species: "Cheetah", threat: "WARNING", time: "31 mins ago" },
+  { id: "init-5", zone: "ZN-09", species: "Black Rhino", threat: "CRITICAL", time: "45 mins ago" },
 ];
 
 const DEMO_MAP_SIGHTINGS: MapSighting[] = [
@@ -436,6 +444,13 @@ export default function RangerDashboard() {
   const [recentSightings, setRecentSightings] = useState(INITIAL_RECENT_SIGHTINGS);
   const [mapSightings, setMapSightings] = useState<MapSighting[]>(DEMO_MAP_SIGHTINGS);
   const [streamLive, setStreamLive] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const [guardrailMetrics, setGuardrailMetrics] = useState({
+    totalCalls: 0,
+    injectionsBlocked: 0,
+    errors: 0,
+  });
+  const [guardrailMetricsLoading, setGuardrailMetricsLoading] = useState(true);
   const cardsVisible = useStaggeredMount(3, 150);
   const zonesVisible = useStaggeredMount(4, 100);
   const zoneAnimalCount = useCountUp(847, 1500);
@@ -488,33 +503,27 @@ export default function RangerDashboard() {
   }, [activeView]);
 
   useEffect(() => {
-    const es = new EventSource("/api/alerts");
+    let closed = false;
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
 
-    es.onmessage = (ev) => {
-      let msg: { type?: string; alert?: Record<string, unknown> };
-      try {
-        msg = JSON.parse(ev.data) as { type?: string; alert?: Record<string, unknown> };
-      } catch {
-        return;
-      }
-
-      if (msg.type === "connected") {
-        setStreamLive(true);
-        return;
-      }
-
-      if (msg.type !== "alert" || !msg.alert) return;
-
-      const a = msg.alert;
+    const applyAlertPayload = (a: Record<string, unknown>) => {
       const species = typeof a.species === "string" ? a.species : "Unknown";
       const lat = typeof a.lat === "number" ? a.lat : 0;
       const lng = typeof a.lng === "number" ? a.lng : 0;
       const threatLevel = typeof a.threatLevel === "string" ? a.threatLevel : "INFO";
+      const rowId =
+        typeof a.alertId === "string" && a.alertId.length > 0
+          ? a.alertId
+          : crypto.randomUUID();
 
       setStreamLive(true);
+      setStreamError(null);
       setRecentSightings((prev) =>
         [
           {
+            id: rowId,
             zone: zoneIdFromCoords(lat, lng),
             species,
             threat: threatLevel,
@@ -543,7 +552,83 @@ export default function RangerDashboard() {
       );
     };
 
-    return () => es.close();
+    const onMessage = (ev: MessageEvent) => {
+      let msg: { type?: string; alert?: Record<string, unknown> };
+      try {
+        msg = JSON.parse(ev.data) as { type?: string; alert?: Record<string, unknown> };
+      } catch {
+        return;
+      }
+
+      if (msg.type === "connected" || msg.type === "heartbeat") {
+        attempt = 0;
+        setStreamLive(true);
+        setStreamError(null);
+        return;
+      }
+
+      if (msg.type !== "alert" || !msg.alert) return;
+      attempt = 0;
+      applyAlertPayload(msg.alert);
+    };
+
+    const connect = () => {
+      if (closed) return;
+      es?.close();
+      es = new EventSource("/api/alerts");
+      es.onmessage = onMessage;
+      es.onerror = () => {
+        console.warn("[ranger-dashboard] alert EventSource error; will reconnect");
+        setStreamLive(false);
+        setStreamError("Alert stream disconnected. Reconnecting…");
+        es?.close();
+        es = null;
+        if (closed) return;
+        attempt += 1;
+        const delay = Math.min(30_000, 1000 * 2 ** Math.min(attempt - 1, 5));
+        reconnectTimer = setTimeout(connect, delay);
+      };
+    };
+
+    connect();
+
+    return () => {
+      closed = true;
+      if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+      es?.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchGuardrailMetrics() {
+      try {
+        const res = await fetch("/api/guardrail-metrics");
+        const data = (await res.json()) as {
+          totalCalls?: number;
+          injectionsBlocked?: number;
+          errors?: number;
+        };
+        if (cancelled) return;
+        setGuardrailMetrics({
+          totalCalls: data.totalCalls ?? 0,
+          injectionsBlocked: data.injectionsBlocked ?? 0,
+          errors: data.errors ?? 0,
+        });
+      } catch {
+        /* keep previous values */
+      } finally {
+        if (!cancelled) setGuardrailMetricsLoading(false);
+      }
+    }
+
+    void fetchGuardrailMetrics();
+    const interval = setInterval(fetchGuardrailMetrics, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   if (breakpoint === null) {
@@ -633,9 +718,11 @@ export default function RangerDashboard() {
               <div
                 className="flex shrink-0 items-center gap-2"
                 title={
-                  streamLive
-                    ? "Connected to /api/alerts stream"
-                    : "Waiting for alert stream"
+                  streamError
+                    ? streamError
+                    : streamLive
+                      ? "Connected to /api/alerts stream"
+                      : "Waiting for alert stream"
                 }
               >
                 <span
@@ -650,6 +737,11 @@ export default function RangerDashboard() {
                 >
                   LIVE
                 </span>
+                {streamError ? (
+                  <span className="max-w-[min(200px,40vw)] truncate text-[10px] text-ranger-apricot">
+                    {streamError}
+                  </span>
+                ) : null}
               </div>
             </div>
           </div>
@@ -889,9 +981,9 @@ export default function RangerDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {recentSightings.map((sighting, i) => (
+                      {recentSightings.map((sighting) => (
                         <tr
-                          key={i}
+                          key={sighting.id}
                           className="border-b border-ranger-border/50 last:border-0"
                         >
                           <td className="py-3 pr-4 text-sm text-ranger-muted">{sighting.zone}</td>
@@ -936,13 +1028,13 @@ export default function RangerDashboard() {
           </div>
           <div className="hidden items-center gap-4 sm:flex">
             <span className="rounded bg-ranger-border/50 px-2 py-0.5 font-mono text-xs uppercase tracking-widest text-ranger-muted">
-              124 calls audited
+              {guardrailMetricsLoading ? "—" : guardrailMetrics.totalCalls} calls audited
             </span>
             <span className="rounded bg-ranger-border/50 px-2 py-0.5 font-mono text-xs uppercase tracking-widest text-ranger-muted">
-              3 injections blocked
+              {guardrailMetricsLoading ? "—" : guardrailMetrics.injectionsBlocked} injections blocked
             </span>
             <span className="rounded bg-ranger-border/50 px-2 py-0.5 font-mono text-xs uppercase tracking-widest text-ranger-muted">
-              0 errors
+              {guardrailMetricsLoading ? "—" : guardrailMetrics.errors} errors
             </span>
           </div>
           <span className="font-mono text-xs uppercase tracking-widest text-ranger-muted">
