@@ -5,7 +5,8 @@
   "type": "module",
   "main": "src/index.ts",
   "dependencies": {
-    "@rangerwatch/shared": "workspace:*"
+    "@rangerwatch/shared": "workspace:*",
+    "node-cron": "^4.2.1"
   },
   "scripts": {
     "lint": "eslint src",
