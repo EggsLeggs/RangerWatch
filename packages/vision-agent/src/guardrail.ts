@@ -1,4 +1,5 @@
 import type { ClassifiedSighting, GuardrailResult } from "@rangerwatch/shared";
+import { getCivicToken } from "@rangerwatch/shared";
 import { readMcpPort } from "@rangerwatch/shared/mcp-port";
 import { z } from "zod";
 
@@ -27,11 +28,15 @@ export async function inspectOutput(
   const timestamp = new Date();
 
   try {
+    const token = await getCivicToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     const response = await fetch(
       `http://localhost:${mcpPort}/${TOOL_NAME}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ payload }),
         signal: AbortSignal.timeout(CIVIC_TIMEOUT_MS),
       }

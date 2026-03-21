@@ -13,9 +13,11 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@civic/auth-mcp": "^0.3.0",
     "@civic/hook-common": "^0.9.0",
     "@rangerwatch/shared": "workspace:*",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "jose": "^6.2.2"
   },
   "devDependencies": {
     "@types/bun": "^1.3.11"
