@@ -17,14 +17,21 @@ export class SightingQueue {
     }
     this.seen.set(key, true);
     if (this.items.length >= MAX_CAPACITY) {
-      this.items.shift();
+      const evicted = this.items.shift();
+      if (evicted) {
+        this.seen.delete(compositeKey(evicted.source, evicted.id));
+      }
     }
     this.items.push(sighting);
     return true;
   }
 
   dequeue(): Sighting | undefined {
-    return this.items.shift();
+    const item = this.items.shift();
+    if (item) {
+      this.seen.delete(compositeKey(item.source, item.id));
+    }
+    return item;
   }
 
   peek(): Sighting[] {

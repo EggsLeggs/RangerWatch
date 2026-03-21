@@ -36,18 +36,18 @@ describe("SightingQueue", () => {
     const s = makeSighting("42", "inaturalist");
     expect(queue.enqueue(s)).toBe(true);
     expect(queue.enqueue(s)).toBe(false);
-    // same id, different source — should be admitted
+    // same id, different source - should be admitted
     expect(queue.enqueue(makeSighting("42", "gbif"))).toBe(true);
     expect(queue.size).toBe(2);
   });
 
-  it("tracks seenIds including dequeued items", () => {
+  it("removes dequeued ids from seen so they can be re-enqueued", () => {
     queue.enqueue(makeSighting("1"));
     queue.enqueue(makeSighting("2"));
     queue.dequeue();
-    expect(queue.seenIds).toBe(2);
-    // re-enqueue dequeued id should still be rejected
-    expect(queue.enqueue(makeSighting("1"))).toBe(false);
+    expect(queue.seenIds).toBe(1);
+    // re-enqueue dequeued id - should be admitted after seen cleanup
+    expect(queue.enqueue(makeSighting("1"))).toBe(true);
   });
 
   it("enforces max capacity by dropping the oldest item", () => {
@@ -59,6 +59,8 @@ describe("SightingQueue", () => {
     queue.enqueue(makeSighting("500"));
     expect(queue.size).toBe(500);
     expect(queue.dequeue()?.id).toBe("1");
+    // evicted id "0" is removed from seen - can be enqueued again
+    expect(queue.enqueue(makeSighting("0"))).toBe(true);
   });
 
   it("peek returns a copy without mutating the queue", () => {
