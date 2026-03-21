@@ -47,12 +47,18 @@ export async function dispatchWebhook(alert: AlertWebhook | AlertBoth): Promise<
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       console.log(`[alert-agent] webhook attempt ${attempt} - idempotency-key ${idempotencyKey}`);
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      };
+      const dashKey = env.DASHBOARD_ALERT_API_KEY;
+      if (dashKey) {
+        headers["x-api-key"] = dashKey;
+      }
+
       const res = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
+        headers,
         body: JSON.stringify(alert),
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });

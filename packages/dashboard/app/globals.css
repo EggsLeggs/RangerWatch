@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --ranger-scrollbar-track: #e8e5de;
+  --ranger-scrollbar-thumb: #cbc8c0;
+  --ranger-scrollbar-thumb-hover: #9a9790;
+}
+
+/* Custom scrollbar */
+.ranger-scrollbar {
+  scrollbar-color: var(--ranger-scrollbar-thumb) var(--ranger-scrollbar-track);
+  scrollbar-width: thin;
+}
+.ranger-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.ranger-scrollbar::-webkit-scrollbar-track {
+  background: var(--ranger-scrollbar-track);
+}
+.ranger-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--ranger-scrollbar-thumb);
+  border-radius: 3px;
+}
+.ranger-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--ranger-scrollbar-thumb-hover);
+}
+
+/* Pulse animation for live indicator */
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse-live {
+  animation: pulse-live 2s ease-in-out infinite;
+}

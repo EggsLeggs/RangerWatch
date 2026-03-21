@@ -17,7 +17,8 @@ const OPTIONAL_ENV_KEYS = [
   "INATURALIST_API_KEY",
   "RESEND_API_KEY",
   "ALERT_FROM_EMAIL",
-  "ALERT_TO_EMAIL"
+  "ALERT_TO_EMAIL",
+  "DASHBOARD_ALERT_API_KEY"
 ] as const;
 
 type RequiredEnvKey = (typeof REQUIRED_ENV_KEYS)[number];
@@ -95,6 +96,7 @@ export const env = {
   RESEND_API_KEY: readOptionalEnv("RESEND_API_KEY"),
   ALERT_FROM_EMAIL: readOptionalEnv("ALERT_FROM_EMAIL"),
   ALERT_TO_EMAIL: readOptionalEnv("ALERT_TO_EMAIL"),
+  DASHBOARD_ALERT_API_KEY: readOptionalEnv("DASHBOARD_ALERT_API_KEY"),
   WEBHOOK_URL: readWebhookUrl(process.env.WEBHOOK_URL),
   INATURALIST_MAX_RESULTS: readInaturalistMaxResults()
 } as const;
