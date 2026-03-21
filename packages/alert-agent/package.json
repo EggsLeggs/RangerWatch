@@ -10,5 +10,8 @@
     "test": "bun test",
     "build": "tsc --outDir dist",
     "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "resend": "^6.9.4"
   }
 }
