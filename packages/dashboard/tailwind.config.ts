@@ -31,7 +31,12 @@ const config: Config = {
         "ranger-sky": "#3d7eb8",
         "ranger-sky-deep": "#2a6aaa",
         "ranger-sky-soft": "#5a9fd4",
-        "ranger-amethyst": "#6b5a8a"
+        "ranger-amethyst": "#6b5a8a",
+        // IUCN status tokens
+        "ranger-cr": "#c0392b",
+        "ranger-en": "#c56a13",
+        "ranger-vu": "#b8960a",
+        "ranger-nt": "#7a8a3a"
       }
     }
   },

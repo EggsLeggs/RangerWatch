@@ -112,7 +112,7 @@ export default function RangerDashboard() {
 
   const { activeZones, speciesTracked, loading: statsLoading, error: statsError } = useStats({ alertCount: alertsToday });
   const { zones, totalAnimals, loading: zonesLoading } = useZoneHealth({ alertCount: alertsToday });
-  const { species, loading: speciesLoading } = useSpeciesIndex();
+  const { species, loading: speciesLoading } = useSpeciesIndex(alertsToday);
 
   const [activityDays, setActivityDays] = useState(7);
   const [activityZone, setActivityZone] = useState("all");
@@ -238,7 +238,6 @@ export default function RangerDashboard() {
             pageTitle={pageTitle}
             isDesktop={isDesktop}
             onOpenSidebar={() => setSidebarOpen(true)}
-            onSearchFocus={() => setActiveView("zone-manager")}
           />
 
           <AgentPipelineBar
@@ -256,7 +255,7 @@ export default function RangerDashboard() {
             ) : activeView === "wildlife-stats" ? (
               <WildlifeStatsView />
             ) : activeView === "species-index" ? (
-              <SpeciesIndexView />
+              <SpeciesIndexView refreshSignal={alertsToday} />
             ) : activeView === "animal-tracker" ? (
               <AnimalTrackerView />
             ) : activeView === "zone-manager" ? (

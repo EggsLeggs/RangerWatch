@@ -59,7 +59,7 @@ export async function GET(request: Request) {
   // attempt MongoDB via shared cache
   try {
     const { getCachedAlerts } = await import("@rangerai/shared/db");
-    const alerts = await getCachedAlerts();
+    const alerts = await getCachedAlerts(0);
 
     if (alerts.length > 0) {
       return Response.json({ series: computeSeries(alerts, days, zone) });

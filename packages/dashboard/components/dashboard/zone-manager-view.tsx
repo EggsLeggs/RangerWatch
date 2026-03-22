@@ -308,10 +308,10 @@ function StatPill({
 }
 
 const IUCN_COLORS: Record<string, string> = {
-  CR: "bg-red-500/20 text-red-400",
-  EN: "bg-orange-500/20 text-orange-400",
-  VU: "bg-amber-500/20 text-amber-400",
-  NT: "bg-yellow-500/20 text-yellow-400",
+  CR: "bg-ranger-cr/20 text-ranger-cr",
+  EN: "bg-ranger-en/20 text-ranger-en",
+  VU: "bg-ranger-vu/20 text-ranger-vu",
+  NT: "bg-ranger-nt/20 text-ranger-nt",
   LC: "bg-ranger-moss/20 text-ranger-moss",
 };
 

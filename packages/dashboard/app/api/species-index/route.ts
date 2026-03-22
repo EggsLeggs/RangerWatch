@@ -26,6 +26,7 @@ interface SpeciesAccum {
   confidenceSum: number;
   iucnStatus: string;
   threatCounts: Record<string, number>;
+  imageUrl: string | null;
 }
 
 function buildSpeciesIndex(alerts: Record<string, unknown>[], nameMap: Map<string, string>) {
@@ -43,7 +44,10 @@ function buildSpeciesIndex(alerts: Record<string, unknown>[], nameMap: Map<strin
         : lat !== null && lng !== null
           ? zoneIdFromCoords(lat, lng)
           : "Unknown";
-    const zoneName = nameMap.get(zoneId) ?? zoneId;
+    const zoneName =
+      typeof a["zoneName"] === "string"
+        ? (a["zoneName"] as string)
+        : nameMap.get(zoneId) ?? zoneId;
 
     const rawDate = a["dispatchedAt"] ?? a["receivedAt"];
     const dateStr =
@@ -57,12 +61,15 @@ function buildSpeciesIndex(alerts: Record<string, unknown>[], nameMap: Map<strin
     const threatLevel = typeof a["threatLevel"] === "string" ? (a["threatLevel"] as string) : "INFO";
     const iucnStatus = typeof a["iucnStatus"] === "string" ? (a["iucnStatus"] as string) : "LC";
 
+    const imageUrl = typeof a["imageUrl"] === "string" ? (a["imageUrl"] as string) : null;
+
     const existing = map.get(species);
     if (existing) {
       existing.totalSightings++;
       if (dateStr > existing.lastSeen) {
         existing.lastSeen = dateStr;
         existing.lastZone = zoneName;
+        if (imageUrl) existing.imageUrl = imageUrl;
       }
       existing.confidenceSum += confidence;
       existing.threatCounts[threatLevel] = (existing.threatCounts[threatLevel] ?? 0) + 1;
@@ -76,6 +83,7 @@ function buildSpeciesIndex(alerts: Record<string, unknown>[], nameMap: Map<strin
         confidenceSum: confidence,
         iucnStatus,
         threatCounts: { [threatLevel]: 1 },
+        imageUrl,
       });
     }
   }
@@ -90,6 +98,7 @@ function buildSpeciesIndex(alerts: Record<string, unknown>[], nameMap: Map<strin
       avgConfidence: Math.round((s.confidenceSum / s.totalSightings) * 100) / 100,
       iucnStatus: s.iucnStatus,
       threatBreakdown: s.threatCounts,
+      imageUrl: s.imageUrl,
     }));
 }
 

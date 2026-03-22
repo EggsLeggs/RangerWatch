@@ -39,31 +39,16 @@ export async function GET(request: Request) {
   const validFromDate = parseValidDateParam(from);
   const validToDate = parseValidDateParam(to);
 
-  // attempt MongoDB via shared cache
+  // attempt MongoDB with filter-scoped query
   let dbAlerts: Record<string, unknown>[] = [];
   try {
-    const { getCachedAlerts } = await import("@rangerai/shared/db");
-    dbAlerts = await getCachedAlerts();
-
-    if (levelSet && levelSet.size > 0) {
-      dbAlerts = dbAlerts.filter((a) => {
-        const tl = a["threatLevel"];
-        return typeof tl === "string" && levelSet.has(normalizeThreatLevelToken(tl));
-      });
-    }
-
-    if (validFromDate || validToDate) {
-      dbAlerts = dbAlerts.filter((a) => {
-        const raw = a["dispatchedAt"] ?? a["receivedAt"];
-        const d = raw instanceof Date ? raw : typeof raw === "string" ? new Date(raw as string) : null;
-        if (!d || isNaN(d.getTime())) return false;
-        if (validFromDate && d.getTime() < validFromDate.getTime()) return false;
-        if (validToDate && d.getTime() > validToDate.getTime()) return false;
-        return true;
-      });
-    }
-
-    dbAlerts = dbAlerts.slice(0, 500);
+    const { getAlerts } = await import("@rangerai/shared/db");
+    dbAlerts = await getAlerts({
+      levelSet: levelSet ?? undefined,
+      from: validFromDate ?? undefined,
+      to: validToDate ?? undefined,
+      limit: 500,
+    });
   } catch (err) {
     console.error("DB unavailable fetching alerts history", err);
   }

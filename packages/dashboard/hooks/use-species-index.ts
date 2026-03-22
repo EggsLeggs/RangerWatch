@@ -21,7 +21,7 @@ interface UseSpeciesIndexResult {
   error: boolean;
 }
 
-export function useSpeciesIndex(): UseSpeciesIndexResult {
+export function useSpeciesIndex(refreshSignal?: number): UseSpeciesIndexResult {
   const [data, setData] = useState<SpeciesIndexResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -48,7 +48,8 @@ export function useSpeciesIndex(): UseSpeciesIndexResult {
     doFetch();
 
     return () => controller.abort();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
 
   return {
     species: data?.species ?? [],

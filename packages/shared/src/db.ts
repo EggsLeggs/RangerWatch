@@ -35,8 +35,9 @@ export async function connectDB(): Promise<Db> {
       db = client.db("rangerai");
 
       if (!indexesEnsured) {
-        indexesEnsured = true;
-        ensureIndexes(db).catch(() => {});
+        ensureIndexes(db)
+          .then(() => { indexesEnsured = true; })
+          .catch((err) => { console.error("[rangerai] ensureIndexes failed", err); });
       }
 
       return db;
@@ -109,7 +110,7 @@ function getAlertsCache(): AlertsCache {
   return g.__rangerAlertsCache;
 }
 
-export async function getCachedAlerts(limit = 1000): Promise<Record<string, unknown>[]> {
+export async function getCachedAlerts(limit = 0): Promise<Record<string, unknown>[]> {
   const cache = getAlertsCache();
 
   if (cache.alerts.length > 0 && Date.now() - cache.fetchedAt < ALERTS_CACHE_TTL_MS) {
@@ -121,7 +122,9 @@ export async function getCachedAlerts(limit = 1000): Promise<Record<string, unkn
   cache.promise = (async () => {
     try {
       const col = await getCollection(COLLECTIONS.ALERTS);
-      const docs = await col.find({}).sort({ dispatchedAt: -1 }).limit(limit).toArray();
+      const cursor = col.find({}).sort({ dispatchedAt: -1 });
+      if (limit > 0) cursor.limit(limit);
+      const docs = await cursor.toArray();
       cache.alerts = docs as unknown as Record<string, unknown>[];
       cache.fetchedAt = Date.now();
       return cache.alerts;
@@ -131,4 +134,29 @@ export async function getCachedAlerts(limit = 1000): Promise<Record<string, unkn
   })();
 
   return cache.promise;
+}
+
+export interface GetAlertsOptions {
+  levelSet?: Set<string>;
+  from?: Date;
+  to?: Date;
+  limit?: number;
+}
+
+export async function getAlerts(opts: GetAlertsOptions = {}): Promise<Record<string, unknown>[]> {
+  const { levelSet, from, to, limit = 500 } = opts;
+  const col = await getCollection(COLLECTIONS.ALERTS);
+  const filter: Record<string, unknown> = {};
+  if (levelSet && levelSet.size > 0) {
+    filter["threatLevel"] = { $in: [...levelSet] };
+  }
+  if (from || to) {
+    const dateFilter: Record<string, Date> = {};
+    if (from) dateFilter["$gte"] = from;
+    if (to) dateFilter["$lte"] = to;
+    filter["dispatchedAt"] = dateFilter;
+  }
+  const cursor = col.find(filter).sort({ dispatchedAt: -1 });
+  if (limit > 0) cursor.limit(limit);
+  return (await cursor.toArray()) as unknown as Record<string, unknown>[];
 }
