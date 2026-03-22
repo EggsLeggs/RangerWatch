@@ -35,7 +35,7 @@ export function ReportModal({
       aria-modal="true"
       aria-labelledby={titleId}
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a3a2acc] p-4 outline-none"
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#1a3a2acc] p-4 outline-none"
       onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
       <Card className="w-full max-w-lg p-6">

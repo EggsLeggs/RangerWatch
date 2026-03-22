@@ -23,7 +23,7 @@ function buildZones(
   since: number,
   nameMap: Map<string, string>,
 ) {
-  const zoneMap = new Map<string, { count: number; atRisk: boolean }>();
+  const zoneMap = new Map<string, { count: number; atRisk: boolean; criticalSpecies: Set<string>; criticalCount: number }>();
 
   for (const alert of alerts) {
     const raw = alert["dispatchedAt"] ?? alert["receivedAt"];
@@ -44,9 +44,14 @@ function buildZones(
     const storedName = typeof alert["zoneName"] === "string" ? (alert["zoneName"] as string) : null;
     if (storedName && !nameMap.has(id)) nameMap.set(id, storedName);
 
-    const cur = zoneMap.get(id) ?? { count: 0, atRisk: false };
+    const cur = zoneMap.get(id) ?? { count: 0, atRisk: false, criticalSpecies: new Set<string>(), criticalCount: 0 };
     cur.count++;
-    if (alert["threatLevel"] === "CRITICAL") cur.atRisk = true;
+    if (alert["threatLevel"] === "CRITICAL") {
+      cur.atRisk = true;
+      cur.criticalCount++;
+      const species = typeof alert["species"] === "string" ? (alert["species"] as string) : null;
+      if (species) cur.criticalSpecies.add(species);
+    }
     zoneMap.set(id, cur);
   }
 
@@ -55,13 +60,27 @@ function buildZones(
   const top8 = entries.slice(0, 8);
   const maxCount = top8[0]?.[1].count ?? 1;
 
-  const zones = top8.map(([id, data]) => ({
-    id,
-    name: nameMap.get(id) ?? id,
-    coverage: Math.round((data.count / maxCount) * 100),
-    atRisk: data.atRisk,
-    color: data.atRisk ? "#c85a3a" : "#4a7c5a",
-  }));
+  const zones = top8.map(([id, data]) => {
+    let atRiskReason: string | undefined;
+    if (data.atRisk) {
+      const speciesList = [...data.criticalSpecies].slice(0, 3);
+      const parts: string[] = [];
+      parts.push(`${data.criticalCount} critical alert${data.criticalCount > 1 ? "s" : ""}`);
+      if (speciesList.length > 0) {
+        const extra = data.criticalSpecies.size - speciesList.length;
+        parts.push(speciesList.join(", ") + (extra > 0 ? ` +${extra} more` : ""));
+      }
+      atRiskReason = parts.join(" - ");
+    }
+    return {
+      id,
+      name: nameMap.get(id) ?? id,
+      coverage: Math.round((data.count / maxCount) * 100),
+      atRisk: data.atRisk,
+      atRiskReason,
+      color: data.atRisk ? "#c85a3a" : "#4a7c5a",
+    };
+  });
 
   return { zones, totalAnimals };
 }
@@ -70,23 +89,13 @@ export async function GET() {
   const since = Date.now() - 24 * 60 * 60 * 1000;
   const nameMap = new Map(getZoneNameCache());
 
-  // attempt MongoDB
+  // attempt MongoDB via shared cache
   try {
-    const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
-    const col = await getCollection(COLLECTIONS.ALERTS);
-
-    const sinceDate = new Date(since);
-    const sinceISO = sinceDate.toISOString();
-
-    const alerts = await col.find({
-      $or: [
-        { dispatchedAt: { $gte: sinceDate } },
-        { dispatchedAt: { $gte: sinceISO } },
-      ],
-    }).toArray();
+    const { getCachedAlerts } = await import("@rangerai/shared/db");
+    const alerts = await getCachedAlerts();
 
     if (alerts.length > 0) {
-      return Response.json(buildZones(alerts as unknown as Record<string, unknown>[], since, nameMap));
+      return Response.json(buildZones(alerts, since, nameMap));
     }
   } catch {
     // fall through to queue

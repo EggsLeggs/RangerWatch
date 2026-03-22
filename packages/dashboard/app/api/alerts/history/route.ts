@@ -39,18 +39,31 @@ export async function GET(request: Request) {
   const validFromDate = parseValidDateParam(from);
   const validToDate = parseValidDateParam(to);
 
-  // attempt MongoDB
+  // attempt MongoDB via shared cache
   let dbAlerts: Record<string, unknown>[] = [];
   try {
-    const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
-    const col = await getCollection(COLLECTIONS.ALERTS);
-    const filter: Record<string, unknown> = {};
-    const dateFilter: Record<string, Date> = {};
-    if (validFromDate) dateFilter.$gte = validFromDate;
-    if (validToDate) dateFilter.$lte = validToDate;
-    if (Object.keys(dateFilter).length) filter.dispatchedAt = dateFilter;
-    if (levelSet && levelSet.size > 0) filter.threatLevel = { $in: [...levelSet] };
-    dbAlerts = await col.find(filter).sort({ dispatchedAt: -1 }).limit(500).toArray();
+    const { getCachedAlerts } = await import("@rangerai/shared/db");
+    dbAlerts = await getCachedAlerts();
+
+    if (levelSet && levelSet.size > 0) {
+      dbAlerts = dbAlerts.filter((a) => {
+        const tl = a["threatLevel"];
+        return typeof tl === "string" && levelSet.has(normalizeThreatLevelToken(tl));
+      });
+    }
+
+    if (validFromDate || validToDate) {
+      dbAlerts = dbAlerts.filter((a) => {
+        const raw = a["dispatchedAt"] ?? a["receivedAt"];
+        const d = raw instanceof Date ? raw : typeof raw === "string" ? new Date(raw as string) : null;
+        if (!d || isNaN(d.getTime())) return false;
+        if (validFromDate && d.getTime() < validFromDate.getTime()) return false;
+        if (validToDate && d.getTime() > validToDate.getTime()) return false;
+        return true;
+      });
+    }
+
+    dbAlerts = dbAlerts.slice(0, 500);
   } catch (err) {
     console.error("DB unavailable fetching alerts history", err);
   }

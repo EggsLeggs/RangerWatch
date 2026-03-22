@@ -3,10 +3,10 @@ import { useState, useEffect } from "react";
 export interface SpeciesIndexEntry {
   name: string;
   totalSightings: number;
-  lastSeen: string | null;
-  lastZone: string | null;
-  avgConfidence: number | null;
-  iucnStatus: string | null;
+  lastSeen: string;
+  lastZone: string;
+  avgConfidence: number;
+  iucnStatus: string;
   threatBreakdown: Record<string, number>;
   imageUrl: string | null;
 }
@@ -31,7 +31,7 @@ export function useSpeciesIndex(): UseSpeciesIndexResult {
 
     const doFetch = async () => {
       try {
-        const res = await fetch("/api/wildlife/species-index", { signal: controller.signal });
+        const res = await fetch("/api/species-index", { signal: controller.signal });
         if (!res.ok) throw new Error("species-index fetch failed");
         const json = (await res.json()) as SpeciesIndexResponse;
         setData(json);

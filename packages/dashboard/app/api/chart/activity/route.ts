@@ -56,22 +56,13 @@ export async function GET(request: Request) {
   const days = Math.max(1, parseInt(searchParams.get("days") ?? "30", 10));
   const zone = searchParams.get("zone") ?? "all";
 
-  // attempt MongoDB
+  // attempt MongoDB via shared cache
   try {
-    const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
-    const col = await getCollection(COLLECTIONS.ALERTS);
-
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
-    const alerts = await col.find({
-      $or: [
-        { dispatchedAt: { $gte: since } },
-        { receivedAt: { $gte: since } },
-      ],
-    }).toArray();
+    const { getCachedAlerts } = await import("@rangerai/shared/db");
+    const alerts = await getCachedAlerts();
 
     if (alerts.length > 0) {
-      return Response.json({ series: computeSeries(alerts as unknown as Record<string, unknown>[], days, zone) });
+      return Response.json({ series: computeSeries(alerts, days, zone) });
     }
   } catch {
     // fall through to queue
