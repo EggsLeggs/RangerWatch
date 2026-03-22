@@ -41,7 +41,7 @@ export function RecentSightingsTable({
             </tr>
           </thead>
           <tbody>
-            {sightings.slice(page * SIGHTINGS_PAGE_SIZE, (page + 1) * SIGHTINGS_PAGE_SIZE).map((sighting) => {
+            {sightings.slice(page * SIGHTINGS_PAGE_SIZE, (page + 1) * SIGHTINGS_PAGE_SIZE).map((sighting, idx) => {
               const alertId = sighting.alertId ?? sighting.id;
               const isGenerating = generatingAlertId === alertId;
               const isDisabled = generatingAlertId !== null && !isGenerating;
