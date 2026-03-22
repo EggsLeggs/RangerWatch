@@ -16,6 +16,7 @@ import { GuardrailFooter } from "./dashboard/guardrail-footer";
 import { DashboardView } from "./dashboard/dashboard-view";
 import { LiveMapView } from "./dashboard/live-map-view";
 import { ReportModal } from "./dashboard/report-modal";
+import { ReportsView } from "./dashboard/reports-view";
 import type { DashboardView as DashboardViewType, NavSection } from "./dashboard/types";
 
 export default function RangerDashboard() {
@@ -56,7 +57,7 @@ export default function RangerDashboard() {
     active: guardrailActive,
     loading: guardrailMetricsLoading,
   } = useGuardrailMetrics();
-  const { generateReport, generating, lastReport, error } = useReportGenerator();
+  const { openOrGenerate, generating, lastReport, error } = useReportGenerator();
   const [modalOpen, setModalOpen] = useState(true);
   const [pendingReportSpecies, setPendingReportSpecies] = useState<string | null>(null);
 
@@ -66,9 +67,9 @@ export default function RangerDashboard() {
     }
   }, [generating, lastReport]);
 
-  const triggerReportGeneration = (alertId: string, species: string) => {
+  const triggerReport = (alertId: string, species: string) => {
     setPendingReportSpecies(species);
-    generateReport(alertId, species);
+    void openOrGenerate(alertId, species);
   };
 
   // re-fit map when navigating to the live-map view
@@ -113,8 +114,8 @@ export default function RangerDashboard() {
           {
             name: "Reports",
             icon: <Icons.Report />,
-            active: false,
-            onSelect: () => { window.location.href = "/reports"; },
+            active: activeView === "reports",
+            onSelect: () => setActiveView("reports"),
           },
           {
             name: "Agent Logs",
@@ -149,7 +150,9 @@ export default function RangerDashboard() {
       ? "Live Map"
       : activeView === "agent-logs"
         ? "Agent logs"
-        : "Dashboard";
+        : activeView === "reports"
+          ? "Reports"
+          : "Dashboard";
 
   return (
     <div className="flex h-screen flex-col bg-ranger-bg font-sans">
@@ -179,6 +182,8 @@ export default function RangerDashboard() {
           <main className="p-4 md:p-6">
             {activeView === "agent-logs" ? (
               <AgentLogsPanel />
+            ) : activeView === "reports" ? (
+              <ReportsView />
             ) : activeView === "live-map" ? (
               <LiveMapView
                 filteredSightings={filteredMapSightings}
@@ -195,7 +200,7 @@ export default function RangerDashboard() {
                 onBoundsChange={setMapBounds}
                 onPinClick={(sighting) => {
                   if (sighting.alertId) {
-                    triggerReportGeneration(sighting.alertId, sighting.label ?? "Unknown species");
+                    triggerReport(sighting.alertId, sighting.label ?? "Unknown species");
                   }
                 }}
               />
@@ -207,7 +212,7 @@ export default function RangerDashboard() {
                 recentSightings={recentSightings}
                 sightingsPage={sightingsPage}
                 onSightingsPageChange={setSightingsPage}
-                onGenerateReport={triggerReportGeneration}
+                onGenerateReport={triggerReport}
                 generatingAlertId={generating}
               />
             )}

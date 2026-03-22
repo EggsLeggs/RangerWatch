@@ -40,15 +40,9 @@ function normalizeThreatLevel(level: string): ThreatLevel {
   return ThreatLevel.INFO;
 }
 
-function monitorReportUrl(filePath: string): string | undefined {
-  const monitorUrl = process.env.MONITOR_URL?.trim();
-  if (!monitorUrl) return undefined;
-  const filename = filePath.split("/").pop();
-  if (!filename) return undefined;
-  const u = new URL(monitorUrl);
-  u.pathname = `/reports/${filename}`;
-  u.search = "";
-  return u.toString();
+function proxyReportUrl(filePath: string): string {
+  const filename = filePath.split("/").pop() ?? "";
+  return `/api/reports/view/${encodeURIComponent(filename)}`;
 }
 
 export async function POST(req: Request) {
@@ -85,8 +79,8 @@ export async function POST(req: Request) {
       inRange: alert.inRange,
     };
 
-    const filePath = await generateReport([scoredSighting]);
-    const reportUrl = monitorReportUrl(filePath);
+    const { filePath, uploadedToS3 } = await generateReport([scoredSighting]);
+    const reportUrl = uploadedToS3 ? proxyReportUrl(filePath) : undefined;
 
     const reportsCol = await getCollection<ReportInsert>(COLLECTIONS.REPORTS);
     const reportDoc: ReportInsert = {

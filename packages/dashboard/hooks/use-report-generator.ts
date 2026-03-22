@@ -18,6 +18,14 @@ type GenerateResponse = {
   species?: string;
 };
 
+type ReportListItem = {
+  _id: string;
+  alertId?: string;
+  reportUrl?: string;
+  filePath: string;
+  species: string;
+};
+
 export function useReportGenerator() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [lastReport, setLastReport] = useState<LastReport | null>(null);
@@ -57,5 +65,30 @@ export function useReportGenerator() {
     }
   }, []);
 
-  return { generateReport, generating, lastReport, error };
+  const openOrGenerate = useCallback(async (alertId: string, species: string) => {
+    if (generating !== null) return;
+
+    try {
+      const res = await fetch("/api/reports");
+      if (res.ok) {
+        const data = (await res.json()) as { reports: ReportListItem[] };
+        const existing = data.reports.find((r) => r.alertId === alertId);
+        if (existing) {
+          setLastReport({
+            reportId: existing._id,
+            reportUrl: existing.reportUrl,
+            filePath: existing.filePath,
+            species: existing.species,
+          });
+          return;
+        }
+      }
+    } catch {
+      // fall through to generate
+    }
+
+    await generateReport(alertId, species);
+  }, [generating, generateReport]);
+
+  return { generateReport, openOrGenerate, generating, lastReport, error };
 }

@@ -22,7 +22,7 @@ export async function GET() {
   try {
     const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
     const col = await getCollection<ReportDoc>(COLLECTIONS.REPORTS);
-    const reports = await col.find({}).sort({ generatedAt: -1 }).limit(200).toArray();
+    const reports = await col.find({ reportUrl: { $exists: true, $ne: "" } }).sort({ generatedAt: -1 }).limit(200).toArray();
     return Response.json({
       reports: reports.map((r) => ({
         ...r,
