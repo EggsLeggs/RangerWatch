@@ -167,7 +167,11 @@ alertEvents.on(ALERT_DISPATCHED, async (event) => {
 console.log("[boot] starting ingest agent (Amboseli)...");
 startIngestAgent();
 console.log("[boot] ingest agent polling");
-console.log("[boot] monitoring UI → http://localhost:4000");
+
+const MONITOR_PORT = Number(process.env.PORT) || 4000;
+console.log(
+  `[boot] monitoring UI → http://localhost:${MONITOR_PORT} (set PORT for railway / production)`,
+);
 
 // keepalive so SSE connections survive Bun's idle timeout
 const KEEPALIVE = encoder.encode(": keepalive\n\n");
@@ -506,7 +510,7 @@ setInterval(fetchDbStats, 10_000);
 </html>`;
 
 Bun.serve({
-  port: 4000,
+  port: MONITOR_PORT,
   idleTimeout: 255,
   async fetch(req: Request): Promise<Response> {
     const { pathname } = new URL(req.url);
