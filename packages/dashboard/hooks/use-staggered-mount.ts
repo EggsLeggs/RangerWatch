@@ -6,6 +6,7 @@ export function useStaggeredMount(itemCount: number, baseDelay: number = 100) {
   );
 
   useEffect(() => {
+    setVisibleItems(Array(itemCount).fill(false));
     const timeouts: NodeJS.Timeout[] = [];
 
     for (let i = 0; i < itemCount; i++) {

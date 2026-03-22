@@ -31,20 +31,20 @@ export function DashboardView({
     <>
       {/* Stat Cards */}
       <div className={`mb-6 grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-3"}`}>
-        {/* TODO: replace with live count from /api/stats once endpoint exists */}
+        {/* TODO: wire to /api/stats once endpoint exists */}
         <StatCard
           title="Active Zones"
-          value={3}
-          subtitle="of 12 zones online"
+          value={0}
+          subtitle="demo — no live data yet"
           trend="up"
           visible={cardsVisible[0]}
           delay={0}
         />
-        {/* TODO: replace with live count from /api/stats once endpoint exists */}
+        {/* TODO: wire to /api/stats once endpoint exists */}
         <StatCard
           title="Species Tracked"
-          value={847}
-          subtitle="across all species"
+          value={0}
+          subtitle="demo — no live data yet"
           trend="up"
           visible={cardsVisible[1]}
           delay={100}

@@ -7,7 +7,7 @@ export function useGuardrailMetrics() {
     injectionsBlocked: 0,
     errors: 0,
   });
-  const [active, setActive] = useState(true);
+  const [active, setActive] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export function useGuardrailMetrics() {
           });
         }
       } catch {
-        /* keep previous values */
+        if (!cancelled) setActive(false);
       } finally {
         if (!cancelled) {
           setLoading(false);

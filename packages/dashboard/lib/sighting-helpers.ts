@@ -106,6 +106,9 @@ export function persistSightings(sightings: RecentSightingRow[]): void {
   } catch { /* ignore */ }
 }
 
+// TODO: getPointsForFrequency and buildFrequencySeries are mock/demo implementations.
+// Replace with real historical frequency data from the API when available.
+
 export function getPointsForFrequency(tab: string): number {
   switch (tab) {
     case "7 Days":

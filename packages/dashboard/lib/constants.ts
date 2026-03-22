@@ -1,4 +1,4 @@
-import type { AgentPipelineEntry, RecentSightingRow } from "../components/dashboard/types";
+import type { AgentPipelineEntry, RecentSightingRow } from "./types";
 
 export const SIGHTINGS_KEY = "rangerai:recent-sightings";
 export const ALERTS_TODAY_KEY = "rangerai:alerts-today";

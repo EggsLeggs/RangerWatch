@@ -117,22 +117,35 @@ export function LiveMapView({
         </span>
       </div>
 
-      {historyError ? (
-        <div className="flex h-[min(70vh,560px)] w-full flex-col items-center justify-center gap-2 rounded-xl border border-ranger-border bg-ranger-card px-6 text-center">
-          <span className="text-sm font-medium text-ranger-apricot">Could not load map history</span>
-          <span className="text-xs text-ranger-muted">{historyError}</span>
-        </div>
-      ) : !historyLoaded ? (
-        <div className="flex h-[min(70vh,560px)] w-full items-center justify-center rounded-xl border border-ranger-border bg-ranger-card">
-          <span className="text-sm text-ranger-muted">Loading sightings…</span>
-        </div>
-      ) : allSightingsCount === 0 ? (
-        <div className="flex h-[min(70vh,560px)] w-full flex-col items-center justify-center gap-2 rounded-xl border border-ranger-border bg-ranger-card">
-          <span className="text-sm font-medium text-ranger-text">No sightings found</span>
-          <span className="text-xs text-ranger-muted">No alert data yet — run the seed script or trigger the pipeline.</span>
-        </div>
+      {allSightingsCount === 0 ? (
+        historyError ? (
+          <div className="flex h-[min(70vh,560px)] w-full flex-col items-center justify-center gap-2 rounded-xl border border-ranger-border bg-ranger-card px-6 text-center">
+            <span className="text-sm font-medium text-ranger-apricot">Could not load map history</span>
+            <span className="text-xs text-ranger-muted">{historyError}</span>
+          </div>
+        ) : !historyLoaded ? (
+          <div className="flex h-[min(70vh,560px)] w-full items-center justify-center rounded-xl border border-ranger-border bg-ranger-card">
+            <span className="text-sm text-ranger-muted">Loading sightings…</span>
+          </div>
+        ) : (
+          <div className="flex h-[min(70vh,560px)] w-full flex-col items-center justify-center gap-2 rounded-xl border border-ranger-border bg-ranger-card">
+            <span className="text-sm font-medium text-ranger-text">No sightings found</span>
+            <span className="text-xs text-ranger-muted">No alert data yet — run the seed script or trigger the pipeline.</span>
+          </div>
+        )
       ) : (
         <div className="relative">
+          {historyError && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg border border-ranger-apricot/40 bg-ranger-apricot/10 px-3 py-2 text-xs text-ranger-apricot">
+              <span className="font-medium">History unavailable:</span>
+              <span>{historyError}</span>
+            </div>
+          )}
+          {!historyLoaded && !historyError && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg border border-ranger-border bg-ranger-card px-3 py-2 text-xs text-ranger-muted">
+              <span>Loading full history…</span>
+            </div>
+          )}
           <LiveMap
             sightings={filteredSightings}
             onBoundsChange={onBoundsChange}
@@ -150,6 +163,7 @@ export function LiveMapView({
                 <div className="mt-3 flex justify-center gap-2">
                   {boundsActive && (
                     <button
+                      type="button"
                       onClick={() => onBoundsActiveChange(false)}
                       className="rounded-lg border border-ranger-border px-3 py-1.5 text-xs text-ranger-text hover:bg-ranger-border/40"
                     >
@@ -157,6 +171,7 @@ export function LiveMapView({
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={() => {
                       onSeverityFilterChange(new Set(["CRITICAL", "WARNING", "INFO"]));
                       onTimeRangeChange("all");

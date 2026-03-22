@@ -5,6 +5,14 @@ import {
   mergeHistoryAndLiveSightings,
 } from "../lib/sighting-helpers";
 
+const TIME_RANGE_MS: Record<string, number> = {
+  "1h": 1 * 60 * 60_000,
+  "6h": 6 * 60 * 60_000,
+  "24h": 24 * 60 * 60_000,
+  "7d": 7 * 24 * 60 * 60_000,
+  "all": Infinity,
+};
+
 export function useMapSightings(
   mapSightings: MapSighting[],
   setMapSightings: React.Dispatch<React.SetStateAction<MapSighting[]>>
@@ -23,14 +31,7 @@ export function useMapSightings(
 
   const filteredMapSightings = useMemo(() => {
     const now = Date.now();
-    const rangeMs: Record<string, number> = {
-      "1h": 1 * 60 * 60_000,
-      "6h": 6 * 60 * 60_000,
-      "24h": 24 * 60 * 60_000,
-      "7d": 7 * 24 * 60 * 60_000,
-      "all": Infinity,
-    };
-    const cutoff = mapTimeRange === "all" ? 0 : now - rangeMs[mapTimeRange];
+    const cutoff = mapTimeRange === "all" ? 0 : now - TIME_RANGE_MS[mapTimeRange];
 
     return mapSightings.filter((s) => {
       if (!mapSeverityFilter.has(s.level)) return false;
@@ -65,13 +66,7 @@ export function useMapSightings(
       try {
         const params = new URLSearchParams();
         if (mapTimeRange !== "all") {
-          const rangeMs: Record<string, number> = {
-            "1h": 1 * 60 * 60_000,
-            "6h": 6 * 60 * 60_000,
-            "24h": 24 * 60 * 60_000,
-            "7d": 7 * 24 * 60 * 60_000,
-          };
-          params.set("from", new Date(Date.now() - rangeMs[mapTimeRange]).toISOString());
+          params.set("from", new Date(Date.now() - TIME_RANGE_MS[mapTimeRange]).toISOString());
         }
         const res = await fetch(`/api/alerts/history?${params.toString()}`);
         if (cancelled || currentId !== mapHistoryRequestIdRef.current) return;

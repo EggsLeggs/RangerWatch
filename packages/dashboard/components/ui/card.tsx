@@ -1,9 +1,10 @@
+import { type HTMLAttributes } from "react";
 import { cn } from "../../lib/utils";
 
 function Card({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
@@ -18,7 +19,7 @@ function Card({
 function CardHeader({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn("flex flex-col space-y-1.5 p-5 pb-0", className)}
@@ -30,7 +31,7 @@ function CardHeader({
 function CardTitle({
   className,
   ...props
-}: React.HTMLAttributes<HTMLHeadingElement>) {
+}: HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
       className={cn("text-lg font-semibold text-ranger-text", className)}
@@ -42,7 +43,7 @@ function CardTitle({
 function CardContent({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("p-5", className)} {...props} />;
 }
 

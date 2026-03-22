@@ -51,7 +51,14 @@ export function RecentSightingsTable({
                 </td>
                 <td className="py-3 pr-4 text-sm text-ranger-muted">{sighting.time}</td>
                 <td className="py-3">
-                  <button aria-label="More options" className="text-ranger-muted hover:text-ranger-text">
+                  {/* TODO: wire to a context menu or detail drawer */}
+                  <button
+                    type="button"
+                    aria-label="More options"
+                    disabled
+                    aria-disabled="true"
+                    className="cursor-not-allowed text-ranger-muted opacity-40"
+                  >
                     <Icons.MoreVertical />
                   </button>
                 </td>

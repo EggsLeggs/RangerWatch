@@ -8,7 +8,7 @@ import { zoneHealthData } from "../../lib/constants";
 import { ZoneProgressBar } from "./zone-progress-bar";
 
 export function ZoneHealthPanel() {
-  const zonesVisible = useStaggeredMount(4, 100);
+  const zonesVisible = useStaggeredMount(zoneHealthData.length, 100);
   const zoneAnimalCount = useCountUp(847, 1500);
 
   return (

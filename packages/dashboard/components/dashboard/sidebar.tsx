@@ -8,11 +8,13 @@ export function Sidebar({
   onClose,
   breakpoint,
   navSections,
+  notificationsCount = 0,
 }: {
   isOpen: boolean;
   onClose: () => void;
   breakpoint: Breakpoint;
   navSections: NavSection[];
+  notificationsCount?: number;
 }) {
   const sidebarContent = (
     <div className="flex h-full flex-col bg-ranger-card">
@@ -73,18 +75,9 @@ export function Sidebar({
             Notifications
           </div>
           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-ranger-apricot px-1.5 text-xs font-medium text-ranger-text">
-            8
+            {notificationsCount}
           </span>
         </button>
-        <div className="mt-2 flex items-center gap-3 rounded-lg bg-ranger-border/30 p-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ranger-moss text-sm font-medium text-ranger-text">
-            AD
-          </div>
-          <div className="flex-1">
-            <div className="text-sm font-medium text-ranger-text">Amara Diallo</div>
-            <div className="text-xs text-ranger-muted">Head Ranger</div>
-          </div>
-        </div>
       </div>
     </div>
   );

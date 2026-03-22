@@ -46,6 +46,7 @@ export async function GET() {
 
       const maxLifetime = setTimeout(() => {
         try {
+          clearInterval(heartbeat);
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: "reconnect" })}\n\n`)
           );

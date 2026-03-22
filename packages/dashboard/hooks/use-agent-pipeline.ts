@@ -29,6 +29,8 @@ export function useAgentPipeline() {
 
     const unsub = subscribeAgentStatus((msg) => {
       if (msg.type === "init" && msg.state && typeof msg.state === "object") {
+        for (const t of debounceTimers.values()) clearTimeout(t);
+        debounceTimers.clear();
         const s = msg.state as Record<string, { status: string; logs: string[] }>;
         setAgentPipeline((prev) =>
           prev.map((p) => {

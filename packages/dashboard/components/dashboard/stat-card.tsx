@@ -34,6 +34,7 @@ export function StatCard({
       <div className="mt-2 flex items-center gap-3">
         <span className="text-3xl font-semibold text-ranger-text">{count}</span>
         <span
+          aria-label={trend === "up" ? "Up trend" : "Down trend"}
           className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
             trend === "up"
               ? "bg-ranger-moss/20 text-ranger-moss"

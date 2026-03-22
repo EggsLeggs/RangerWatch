@@ -17,6 +17,7 @@ export function Header({
         <div className="flex items-center gap-4">
           {!isDesktop && (
             <button
+              type="button"
               onClick={onOpenSidebar}
               aria-label="Open navigation"
               className="text-ranger-muted hover:text-ranger-text"
@@ -35,12 +36,11 @@ export function Header({
             <input
               type="text"
               placeholder="Search..."
+              aria-label="Search"
               className="w-32 bg-transparent text-sm text-ranger-text placeholder-ranger-muted outline-none lg:w-48"
             />
           </div>
-          <button aria-label="More options" className="rounded-lg p-2 text-ranger-muted hover:bg-ranger-border/30 hover:text-ranger-text">
-            <Icons.MoreVertical />
-          </button>
+
         </div>
       </div>
     </header>

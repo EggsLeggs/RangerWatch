@@ -79,7 +79,6 @@ export default function RangerDashboard() {
             active: activeView === "live-map",
             onSelect: () => setActiveView("live-map"),
           },
-          { name: "Alert Feed", icon: <Icons.Alert />, active: false },
           { name: "Zone Manager", icon: <Icons.Zone />, active: false },
         ],
       },
@@ -138,6 +137,7 @@ export default function RangerDashboard() {
         onClose={() => setSidebarOpen(false)}
         breakpoint={breakpoint}
         navSections={navSections}
+        notificationsCount={alertsToday}
       />
 
       <div className={`flex flex-1 flex-col overflow-hidden ${isDesktop ? "ml-[220px]" : ""}`}>

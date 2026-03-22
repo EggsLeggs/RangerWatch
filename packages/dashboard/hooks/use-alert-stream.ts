@@ -23,9 +23,13 @@ export function useAlertStream(
   const [alertsToday, setAlertsToday] = useState(0);
   const todayAlertIdsRef = useRef<Set<string>>(new Set());
 
-  // restore recent sightings from localStorage on mount
+  // restore recent sightings from localStorage on mount - only if sufficiently recent
   useEffect(() => {
-    const persisted = loadPersistedSightings();
+    const MAX_PERSISTED_AGE_MS = 24 * 60 * 60_000; // 24 hours
+    const now = Date.now();
+    const persisted = loadPersistedSightings().filter(
+      (s) => s.receivedAt && now - s.receivedAt.getTime() < MAX_PERSISTED_AGE_MS
+    );
     if (persisted.length > 0) setRecentSightings(persisted);
   }, []);
 

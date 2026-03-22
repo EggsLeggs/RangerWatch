@@ -11,6 +11,12 @@ export function useCountUp(target: number, duration: number = 1500) {
     const startValue = currentRef.current;
     startTimeRef.current = null;
 
+    if (duration <= 0) {
+      currentRef.current = target;
+      setCount(target);
+      return;
+    }
+
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
     const animate = (timestamp: number) => {
