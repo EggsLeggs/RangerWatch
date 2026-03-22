@@ -39,6 +39,7 @@ bun install
 ```bash
 cp .env.example .env
 # fill in your API keys (at minimum: OPENAI_API_KEY, IUCN_TOKEN, CIVIC_API_KEY)
+# MONGODB_URI defaults to localhost — change only if using a remote instance
 ```
 
 ### 3. Start everything
