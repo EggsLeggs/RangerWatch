@@ -76,13 +76,26 @@ export async function POST(req: Request) {
     return Response.json({ error: "invalid alert payload" }, { status: 400 });
   }
 
+  const receivedAt = new Date().toISOString();
   const queue = getQueue();
-  queue.push({ alert: body, receivedAt: new Date().toISOString() });
+  queue.push({ alert: body, receivedAt });
   if (queue.length > MAX_QUEUE) {
     queue.splice(0, queue.length - MAX_QUEUE);
   }
 
   broadcast({ type: "alert", alert: body });
+
+  (async () => {
+    try {
+      const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
+      const col = await getCollection(COLLECTIONS.ALERTS);
+      await col.updateOne(
+        { alertId: body.alertId },
+        { $set: { ...body, receivedAt } },
+        { upsert: true }
+      );
+    } catch { /* db write must not crash SSE */ }
+  })();
 
   return Response.json({ ok: true, id: body.alertId });
 }

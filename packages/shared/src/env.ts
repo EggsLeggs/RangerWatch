@@ -10,7 +10,8 @@ const REQUIRED_ENV_KEYS = [
   "GBIF_TOKEN",
   "IUCN_TOKEN",
   "OPENAI_API_KEY",
-  "CIVIC_API_KEY"
+  "CIVIC_API_KEY",
+  "MONGODB_URI"
 ] as const;
 
 const OPTIONAL_ENV_KEYS = [
@@ -98,7 +99,8 @@ export const env = {
   ALERT_TO_EMAIL: readOptionalEnv("ALERT_TO_EMAIL"),
   DASHBOARD_ALERT_API_KEY: readOptionalEnv("DASHBOARD_ALERT_API_KEY"),
   WEBHOOK_URL: readWebhookUrl(process.env.WEBHOOK_URL),
-  INATURALIST_MAX_RESULTS: readInaturalistMaxResults()
+  INATURALIST_MAX_RESULTS: readInaturalistMaxResults(),
+  MONGODB_URI: readRequiredEnv("MONGODB_URI")
 } as const;
 
 export type Env = typeof env;
