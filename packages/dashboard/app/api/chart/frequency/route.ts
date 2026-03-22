@@ -65,22 +65,13 @@ export async function GET(request: Request) {
   const tab = searchParams.get("tab") ?? "7 Days";
   const days = parseTabToDays(tab);
 
-  // attempt MongoDB
+  // attempt MongoDB via shared cache
   try {
-    const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
-    const col = await getCollection(COLLECTIONS.ALERTS);
-
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
-    const alerts = await col.find({
-      $or: [
-        { dispatchedAt: { $gte: since } },
-        { receivedAt: { $gte: since } },
-      ],
-    }).toArray();
+    const { getCachedAlerts } = await import("@rangerai/shared/db");
+    const alerts = await getCachedAlerts();
 
     if (alerts.length > 0) {
-      return Response.json(computeFrequency(alerts as unknown as Record<string, unknown>[], days));
+      return Response.json(computeFrequency(alerts, days));
     }
   } catch {
     // fall through to queue

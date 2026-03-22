@@ -41,23 +41,13 @@ function computeStats(alerts: Record<string, unknown>[]) {
 }
 
 export async function GET() {
-  // attempt MongoDB
+  // attempt MongoDB via shared cache
   try {
-    const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
-    const col = await getCollection(COLLECTIONS.ALERTS);
-
-    const startOfToday = new Date();
-    startOfToday.setUTCHours(0, 0, 0, 0);
-
-    const alerts = await col.find({
-      $or: [
-        { dispatchedAt: { $gte: startOfToday } },
-        { receivedAt: { $gte: startOfToday } },
-      ],
-    }).toArray();
+    const { getCachedAlerts } = await import("@rangerai/shared/db");
+    const alerts = await getCachedAlerts();
 
     if (alerts.length > 0) {
-      return Response.json(computeStats(alerts as unknown as Record<string, unknown>[]));
+      return Response.json(computeStats(alerts));
     }
   } catch {
     // fall through to queue

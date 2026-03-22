@@ -13,6 +13,7 @@ import { useZoneHealth } from "../hooks/use-zone-health";
 import { useSightingActivity } from "../hooks/use-sighting-activity";
 import { useSightingFrequency } from "../hooks/use-sighting-frequency";
 import { useReportGenerator } from "../hooks/use-report-generator";
+import { useSpeciesIndex } from "../hooks/use-species-index";
 import { Sidebar } from "./dashboard/sidebar";
 import { Header } from "./dashboard/header";
 import { AgentPipelineBar } from "./dashboard/agent-pipeline-bar";
@@ -24,6 +25,7 @@ import { ReportsView } from "./dashboard/reports-view";
 import { WildlifeStatsView } from "./dashboard/wildlife-stats-view";
 import { SpeciesIndexView } from "./dashboard/species-index-view";
 import { AnimalTrackerView } from "./dashboard/animal-tracker-view";
+import { ZoneManagerView } from "./dashboard/zone-manager-view";
 import { RangerDispatchView } from "./dashboard/ranger-dispatch-view";
 import type { MapSighting } from "./live-map";
 import type { DashboardView as DashboardViewType, NavSection } from "./dashboard/types";
@@ -36,6 +38,7 @@ const PAGE_TITLES: Record<DashboardViewType, string> = {
   "wildlife-stats": "Wildlife Stats",
   "species-index": "Species Index",
   "animal-tracker": "Animal Tracker",
+  "zone-manager": "Zone Manager",
   "ranger-dispatch": "Ranger Dispatch",
 };
 
@@ -111,6 +114,7 @@ export default function RangerDashboard() {
 
   const { activeZones, speciesTracked, loading: statsLoading, error: statsError } = useStats({ alertCount: alertsToday });
   const { zones, totalAnimals, loading: zonesLoading } = useZoneHealth({ alertCount: alertsToday });
+  const { species, loading: speciesLoading } = useSpeciesIndex(alertsToday);
 
   const [activityDays, setActivityDays] = useState(7);
   const [activityZone, setActivityZone] = useState("all");
@@ -147,7 +151,12 @@ export default function RangerDashboard() {
             active: activeView === "live-map",
             onSelect: () => setActiveView("live-map"),
           },
-          { name: "Zone Manager", icon: <Icons.Zone />, active: false },
+          {
+            name: "Zone Manager",
+            icon: <Icons.Zone />,
+            active: activeView === "zone-manager",
+            onSelect: () => setActiveView("zone-manager"),
+          },
         ],
       },
       {
@@ -253,9 +262,17 @@ export default function RangerDashboard() {
             ) : activeView === "wildlife-stats" ? (
               <WildlifeStatsView />
             ) : activeView === "species-index" ? (
-              <SpeciesIndexView />
+              <SpeciesIndexView refreshSignal={alertsToday} />
             ) : activeView === "animal-tracker" ? (
               <AnimalTrackerView />
+            ) : activeView === "zone-manager" ? (
+              <ZoneManagerView
+                zones={zones}
+                totalAnimals={totalAnimals}
+                zonesLoading={zonesLoading}
+                species={species}
+                speciesLoading={speciesLoading}
+              />
             ) : activeView === "ranger-dispatch" ? (
               <RangerDispatchView />
             ) : activeView === "live-map" ? (

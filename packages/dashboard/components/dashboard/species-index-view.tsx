@@ -7,8 +7,8 @@ import { useSpeciesIndex } from "../../hooks/use-species-index";
 
 const PAGE_SIZE = 24;
 
-export function SpeciesIndexView() {
-  const { species, loading, error } = useSpeciesIndex();
+export function SpeciesIndexView({ refreshSignal }: { refreshSignal?: number } = {}) {
+  const { species, loading, error } = useSpeciesIndex(refreshSignal);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
 

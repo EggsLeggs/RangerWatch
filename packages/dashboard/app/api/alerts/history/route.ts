@@ -39,18 +39,16 @@ export async function GET(request: Request) {
   const validFromDate = parseValidDateParam(from);
   const validToDate = parseValidDateParam(to);
 
-  // attempt MongoDB
+  // attempt MongoDB with filter-scoped query
   let dbAlerts: Record<string, unknown>[] = [];
   try {
-    const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
-    const col = await getCollection(COLLECTIONS.ALERTS);
-    const filter: Record<string, unknown> = {};
-    const dateFilter: Record<string, Date> = {};
-    if (validFromDate) dateFilter.$gte = validFromDate;
-    if (validToDate) dateFilter.$lte = validToDate;
-    if (Object.keys(dateFilter).length) filter.dispatchedAt = dateFilter;
-    if (levelSet && levelSet.size > 0) filter.threatLevel = { $in: [...levelSet] };
-    dbAlerts = await col.find(filter).sort({ dispatchedAt: -1 }).limit(500).toArray();
+    const { getAlerts } = await import("@rangerai/shared/db");
+    dbAlerts = await getAlerts({
+      levelSet: levelSet ?? undefined,
+      from: validFromDate ?? undefined,
+      to: validToDate ?? undefined,
+      limit: 500,
+    });
   } catch (err) {
     console.error("DB unavailable fetching alerts history", err);
   }

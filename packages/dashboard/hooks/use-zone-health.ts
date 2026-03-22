@@ -5,6 +5,7 @@ export interface ZoneData {
   name: string;
   coverage: number;
   atRisk: boolean;
+  atRiskReason?: string;
   color: string;
 }
 
