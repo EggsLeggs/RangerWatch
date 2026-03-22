@@ -55,6 +55,13 @@ export default function RangerDashboard() {
     setMapSightings,
   } = useAlertStream(setAgentPipeline);
 
+  const actionableSightings = useMemo(
+    () => recentSightings.filter((s) => s.threat === "CRITICAL" || s.threat === "WARNING"),
+    [recentSightings],
+  );
+  const [lastReadCount, setLastReadCount] = useState(0);
+  const unreadNotifications = Math.max(0, actionableSightings.length - lastReadCount);
+
   const {
     mapHistoryLoaded,
     mapHistoryError,
@@ -89,6 +96,10 @@ export default function RangerDashboard() {
     setPendingReportSpecies(species);
     void openOrGenerate(alertId, species);
   }, [setPendingReportSpecies, openOrGenerate]);
+  const viewAllReports = useCallback(() => {
+    setActiveView("reports");
+    setModalOpen(false);
+  }, []);
 
   const onPinClick = useCallback((sighting: MapSighting) => {
     if (sighting.alertId) {
@@ -207,7 +218,9 @@ export default function RangerDashboard() {
         onClose={() => setSidebarOpen(false)}
         breakpoint={breakpoint}
         navSections={navSections}
-        notificationsCount={alertsToday}
+        notifications={actionableSightings}
+        unreadCount={unreadNotifications}
+        onNotificationsOpen={() => setLastReadCount(actionableSightings.length)}
       />
 
       <div className={`flex flex-1 flex-col overflow-hidden ${isDesktop ? "ml-[220px]" : ""}`}>
@@ -296,6 +309,7 @@ export default function RangerDashboard() {
           species={generating ? pendingReportSpecies : (lastReport?.species ?? null)}
           reportUrl={lastReport?.reportUrl}
           filePath={lastReport?.filePath}
+          onViewAllReports={viewAllReports}
           onClose={() => setModalOpen(false)}
         />
       )}
