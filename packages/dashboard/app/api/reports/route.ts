@@ -1,22 +1,8 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type ReportDoc = {
-  _id: unknown;
-  filePath: string;
-  generatedAt: Date | string;
-  species: string;
-  alertId?: string;
-  reportUrl?: string;
-};
-
-function stringifyId(id: unknown): string {
-  if (typeof id === "string") return id;
-  if (id && typeof id === "object" && "toString" in id && typeof (id as { toString: () => string }).toString === "function") {
-    return (id as { toString: () => string }).toString();
-  }
-  return "";
-}
+import type { ReportDoc } from "./_shared";
+import { stringifyId } from "./_shared";
 
 export async function GET() {
   try {

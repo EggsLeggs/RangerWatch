@@ -100,12 +100,7 @@ export async function POST(req: Request) {
       reportUrl,
     });
   } catch (err) {
-    return Response.json(
-      {
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-      },
-      { status: 500 },
-    );
+    console.error("[reports/generate] unhandled error:", err instanceof Error ? err.stack : err);
+    return Response.json({ ok: false, error: "Internal server error" }, { status: 500 });
   }
 }

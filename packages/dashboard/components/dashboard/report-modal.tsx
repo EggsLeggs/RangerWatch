@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Card } from "../ui/card";
 
@@ -16,27 +17,43 @@ export function ReportModal({
   filePath?: string;
   onClose: () => void;
 }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    cardRef.current?.focus();
+  }, []);
+
   if (!generating && !reportUrl && !filePath) return null;
 
+  const titleId = "report-modal-title";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a3a2acc] p-4">
+    <div
+      ref={cardRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a3a2acc] p-4 outline-none"
+      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+    >
       <Card className="w-full max-w-lg p-6">
         {generating ? (
           <div className="space-y-3 text-center">
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-ranger-moss border-t-transparent" />
-            <h2 className="text-xl font-semibold text-ranger-text">
+            <h2 id={titleId} className="text-xl font-semibold text-ranger-text">
               Generating report for {species ?? "species"}...
             </h2>
             <p className="text-sm text-ranger-muted">
               Requesting DALL-E 3 illustration and
               <br />
-              GPT-4o field narrative. this takes around 20-30 seconds.
+              GPT-4o field narrative. This takes around 20-30 seconds.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             <div>
-              <h2 className="text-xl font-semibold text-ranger-text">Report ready</h2>
+              <h2 id={titleId} className="text-xl font-semibold text-ranger-text">Report ready</h2>
               {species && <p className="mt-1 text-sm text-ranger-muted">{species}</p>}
             </div>
 

@@ -1,25 +1,11 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type ReportDoc = {
-  _id: unknown;
-  filePath: string;
-  generatedAt: Date | string;
-  species: string;
-  alertId?: string;
-  reportUrl?: string;
-};
+import type { ReportDoc } from "../_shared";
+import { stringifyId } from "../_shared";
 
 function isLikelyObjectId(id: string): boolean {
   return /^[a-fA-F0-9]{24}$/.test(id);
-}
-
-function stringifyId(id: unknown): string {
-  if (typeof id === "string") return id;
-  if (id && typeof id === "object" && "toString" in id && typeof (id as { toString: () => string }).toString === "function") {
-    return (id as { toString: () => string }).toString();
-  }
-  return "";
 }
 
 export async function GET(
@@ -32,11 +18,10 @@ export async function GET(
       return Response.json({ error: "report not found" }, { status: 404 });
     }
 
+    const { ObjectId } = await import("mongodb");
     const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
     const col = await getCollection<ReportDoc>(COLLECTIONS.REPORTS);
-    const report = await col.findOne({
-      $expr: { $eq: [{ $toString: "$_id" }, id] },
-    });
+    const report = await col.findOne({ _id: new ObjectId(id) });
     if (!report) {
       return Response.json({ error: "report not found" }, { status: 404 });
     }

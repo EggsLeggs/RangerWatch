@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Icons } from "./icons";
 import { AgentLogsPanel } from "./agent-logs-panel";
 import { useWindowSize } from "../hooks/use-window-size";
@@ -17,6 +17,7 @@ import { DashboardView } from "./dashboard/dashboard-view";
 import { LiveMapView } from "./dashboard/live-map-view";
 import { ReportModal } from "./dashboard/report-modal";
 import { ReportsView } from "./dashboard/reports-view";
+import type { MapSighting } from "./live-map";
 import type { DashboardView as DashboardViewType, NavSection } from "./dashboard/types";
 
 export default function RangerDashboard() {
@@ -67,10 +68,16 @@ export default function RangerDashboard() {
     }
   }, [generating, lastReport]);
 
-  const triggerReport = (alertId: string, species: string) => {
+  const triggerReport = useCallback((alertId: string, species: string) => {
     setPendingReportSpecies(species);
     void openOrGenerate(alertId, species);
-  };
+  }, [setPendingReportSpecies, openOrGenerate]);
+
+  const onPinClick = useCallback((sighting: MapSighting) => {
+    if (sighting.alertId) {
+      triggerReport(sighting.alertId, sighting.label ?? "Unknown species");
+    }
+  }, [triggerReport]);
 
   // re-fit map when navigating to the live-map view
   useEffect(() => {
@@ -198,11 +205,7 @@ export default function RangerDashboard() {
                 boundsActive={mapBoundsActive}
                 onBoundsActiveChange={setMapBoundsActive}
                 onBoundsChange={setMapBounds}
-                onPinClick={(sighting) => {
-                  if (sighting.alertId) {
-                    triggerReport(sighting.alertId, sighting.label ?? "Unknown species");
-                  }
-                }}
+                onPinClick={onPinClick}
               />
             ) : (
               <DashboardView

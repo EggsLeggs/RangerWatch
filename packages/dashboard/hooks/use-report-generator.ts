@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 type LastReport = {
   reportId: string;
@@ -9,14 +9,24 @@ type LastReport = {
   species: string;
 };
 
-type GenerateResponse = {
-  ok: boolean;
-  error?: string;
-  reportId?: string;
+type GenerateSuccess = {
+  ok: true;
+  reportId: string;
+  filePath: string;
   reportUrl?: string;
-  filePath?: string;
   species?: string;
 };
+
+type GenerateFailure = {
+  ok: false;
+  error: string;
+};
+
+type GenerateResponse = GenerateSuccess | GenerateFailure;
+
+function isGenerateSuccess(r: GenerateResponse): r is GenerateSuccess {
+  return r.ok === true && typeof r.reportId === "string" && typeof r.filePath === "string";
+}
 
 type ReportListItem = {
   _id: string;
@@ -30,8 +40,11 @@ export function useReportGenerator() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [lastReport, setLastReport] = useState<LastReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
 
   const generateReport = useCallback(async (alertId: string, species: string) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setGenerating(alertId);
     setError(null);
     setLastReport(null);
@@ -45,12 +58,11 @@ export function useReportGenerator() {
 
       const payload = (await res.json()) as GenerateResponse;
       if (!res.ok || !payload.ok) {
-        setError(payload.error ?? "Failed to generate report");
-        setGenerating(null);
+        setError(!payload.ok ? payload.error : "Failed to generate report");
         return;
       }
 
-      if (payload.reportId && payload.filePath) {
+      if (isGenerateSuccess(payload)) {
         setLastReport({
           reportId: payload.reportId,
           reportUrl: payload.reportUrl,
@@ -61,6 +73,7 @@ export function useReportGenerator() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to generate report");
     } finally {
+      inFlightRef.current = false;
       setGenerating(null);
     }
   }, []);
