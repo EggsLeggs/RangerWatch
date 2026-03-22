@@ -114,6 +114,7 @@ Copy `.env.example` to `.env` and fill in the values. Required keys are marked.
 
 | Variable | Required | Description |
 |---|---|---|
+| `MONGODB_URI` | **yes** | MongoDB connection string (default: `mongodb://localhost:27017/rangerai`) |
 | `OPENAI_API_KEY` | **yes** | GPT-4o classification + DALL-E 3 report illustrations |
 | `IUCN_TOKEN` | **yes** | IUCN Red List API v4 for conservation status and range data |
 | `CIVIC_API_KEY` | **yes** | Civic guardrail SDK for input/output inspection |
