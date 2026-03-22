@@ -77,7 +77,8 @@ export function useAlertStream(
       setStreamError(null);
       setSightingsPage(0);
       setRecentSightings((prev) => {
-        if (prev.some((s) => s.id === rowId)) return prev;
+        const real = prev.filter((s) => !s.id.startsWith("init-"));
+        if (real.some((s) => s.id === rowId)) return real.length !== prev.length ? real : prev;
         return [
           {
             id: rowId,
@@ -87,7 +88,7 @@ export function useAlertStream(
             time: formatRelativeTime(now),
             receivedAt: now,
           },
-          ...prev,
+          ...real,
         ].slice(0, 50);
       });
 
@@ -201,11 +202,28 @@ export function useAlertStream(
         }
         if (cancelled) return;
         if (rows.length) {
+          let counterChanged = false;
+          for (const r of rows) {
+            if (!todayAlertIdsRef.current.has(r.id)) {
+              todayAlertIdsRef.current.add(r.id);
+              counterChanged = true;
+            }
+          }
+          if (counterChanged) {
+            setAlertsToday(todayAlertIdsRef.current.size);
+            try {
+              localStorage.setItem(ALERTS_TODAY_KEY, JSON.stringify({
+                date: new Date().toDateString(),
+                ids: [...todayAlertIdsRef.current],
+              }));
+            } catch { /* ignore */ }
+          }
           setRecentSightings((prev) => {
-            const existingIds = new Set(prev.map((s) => s.id));
+            const real = prev.filter((s) => !s.id.startsWith("init-"));
+            const existingIds = new Set(real.map((s) => s.id));
             const fresh = rows.filter((r) => !existingIds.has(r.id));
-            if (!fresh.length) return prev;
-            return [...fresh, ...prev].slice(0, 50);
+            if (!fresh.length) return real.length !== prev.length ? real : prev;
+            return [...fresh, ...real].slice(0, 50);
           });
         }
       } catch { /* ignore - history is best-effort */ }
