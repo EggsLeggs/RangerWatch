@@ -1,0 +1,59 @@
+import { useState, useEffect } from "react";
+
+export interface FrequencyPoint {
+  day: string;
+  [species: string]: number | string;
+}
+
+interface FrequencyResponse {
+  series: FrequencyPoint[];
+  species: string[];
+  unavailable?: boolean;
+}
+
+interface UseFrequencyParams {
+  tab: string;
+}
+
+interface UseFrequencyResult {
+  series: FrequencyPoint[];
+  species: string[];
+  loading: boolean;
+}
+
+export function useSightingFrequency({ tab }: UseFrequencyParams): UseFrequencyResult {
+  const [data, setData] = useState<FrequencyResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const doFetch = async () => {
+      try {
+        const params = new URLSearchParams({ tab });
+        const res = await fetch(`/api/chart/frequency?${params}`, { signal: controller.signal });
+        if (!res.ok) throw new Error("frequency fetch failed");
+        const json = (await res.json()) as FrequencyResponse;
+        setData(json);
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setData({ series: [], species: [] });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    setLoading(true);
+    doFetch();
+
+    return () => {
+      controller.abort();
+    };
+  }, [tab]);
+
+  return {
+    series: data?.series ?? [],
+    species: data?.species ?? [],
+    loading,
+  };
+}

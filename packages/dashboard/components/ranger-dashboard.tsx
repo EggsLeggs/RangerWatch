@@ -8,6 +8,10 @@ import { useAgentPipeline } from "../hooks/use-agent-pipeline";
 import { useAlertStream } from "../hooks/use-alert-stream";
 import { useMapSightings } from "../hooks/use-map-sightings";
 import { useGuardrailMetrics } from "../hooks/use-guardrail-metrics";
+import { useStats } from "../hooks/use-stats";
+import { useZoneHealth } from "../hooks/use-zone-health";
+import { useSightingActivity } from "../hooks/use-sighting-activity";
+import { useSightingFrequency } from "../hooks/use-sighting-frequency";
 import { Sidebar } from "./dashboard/sidebar";
 import { Header } from "./dashboard/header";
 import { AgentPipelineBar } from "./dashboard/agent-pipeline-bar";
@@ -54,6 +58,20 @@ export default function RangerDashboard() {
     active: guardrailActive,
     loading: guardrailMetricsLoading,
   } = useGuardrailMetrics();
+
+  const { activeZones, speciesTracked } = useStats({ alertCount: alertsToday });
+  const { zones, totalAnimals, loading: zonesLoading } = useZoneHealth({ alertCount: alertsToday });
+
+  const [activityDays, setActivityDays] = useState(7);
+  const [activityZone, setActivityZone] = useState("all");
+  const { series: activitySeries, loading: activityLoading } = useSightingActivity({
+    days: activityDays,
+    zone: activityZone,
+  });
+
+  const [frequencyTab, setFrequencyTab] = useState("7 Days");
+  const { series: frequencySeries, species: frequencySpecies, loading: frequencyLoading } =
+    useSightingFrequency({ tab: frequencyTab });
 
   // re-fit map when navigating to the live-map view
   useEffect(() => {
@@ -172,15 +190,30 @@ export default function RangerDashboard() {
                 boundsActive={mapBoundsActive}
                 onBoundsActiveChange={setMapBoundsActive}
                 onBoundsChange={setMapBounds}
+                zones={zones}
               />
             ) : (
               <DashboardView
                 isMobile={isMobile}
                 isDesktop={isDesktop}
                 alertsToday={alertsToday}
+                activeZones={activeZones}
+                speciesTracked={speciesTracked}
                 recentSightings={recentSightings}
                 sightingsPage={sightingsPage}
                 onSightingsPageChange={setSightingsPage}
+                zones={zones}
+                totalAnimals={totalAnimals}
+                zonesLoading={zonesLoading}
+                activitySeries={activitySeries}
+                activityLoading={activityLoading}
+                onZoneChange={setActivityZone}
+                onDaysChange={setActivityDays}
+                frequencySeries={frequencySeries}
+                frequencySpecies={frequencySpecies}
+                frequencyLoading={frequencyLoading}
+                frequencyTab={frequencyTab}
+                onFrequencyTabChange={setFrequencyTab}
               />
             )}
           </main>
