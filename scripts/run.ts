@@ -612,6 +612,22 @@ Bun.serve({
       }
     }
 
+    if (pathname === "/audit_log" && req.method === "GET") {
+      const mcpPort = Number(process.env.MCP_PORT) || 3001;
+      try {
+        const res = await fetch(`http://127.0.0.1:${mcpPort}/audit_log`);
+        return new Response(await res.text(), {
+          status: res.status,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: String(err) }), {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
     if (pathname === "/db-stats" && req.method === "GET") {
       try {
         const database = await connectDB();
