@@ -8,12 +8,14 @@ import { useAgentPipeline } from "../hooks/use-agent-pipeline";
 import { useAlertStream } from "../hooks/use-alert-stream";
 import { useMapSightings } from "../hooks/use-map-sightings";
 import { useGuardrailMetrics } from "../hooks/use-guardrail-metrics";
+import { useReportGenerator } from "../hooks/use-report-generator";
 import { Sidebar } from "./dashboard/sidebar";
 import { Header } from "./dashboard/header";
 import { AgentPipelineBar } from "./dashboard/agent-pipeline-bar";
 import { GuardrailFooter } from "./dashboard/guardrail-footer";
 import { DashboardView } from "./dashboard/dashboard-view";
 import { LiveMapView } from "./dashboard/live-map-view";
+import { ReportModal } from "./dashboard/report-modal";
 import type { DashboardView as DashboardViewType, NavSection } from "./dashboard/types";
 
 export default function RangerDashboard() {
@@ -54,6 +56,20 @@ export default function RangerDashboard() {
     active: guardrailActive,
     loading: guardrailMetricsLoading,
   } = useGuardrailMetrics();
+  const { generateReport, generating, lastReport, error } = useReportGenerator();
+  const [modalOpen, setModalOpen] = useState(true);
+  const [pendingReportSpecies, setPendingReportSpecies] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (generating !== null || lastReport !== null) {
+      setModalOpen(true);
+    }
+  }, [generating, lastReport]);
+
+  const triggerReportGeneration = (alertId: string, species: string) => {
+    setPendingReportSpecies(species);
+    generateReport(alertId, species);
+  };
 
   // re-fit map when navigating to the live-map view
   useEffect(() => {
@@ -94,7 +110,12 @@ export default function RangerDashboard() {
         title: "OPERATIONS",
         items: [
           { name: "Ranger Dispatch", icon: <Icons.Dispatch />, active: false },
-          { name: "Reports", icon: <Icons.Report />, active: false },
+          {
+            name: "Reports",
+            icon: <Icons.Report />,
+            active: false,
+            onSelect: () => { window.location.href = "/reports"; },
+          },
           {
             name: "Agent Logs",
             icon: <Icons.Logs />,
@@ -172,6 +193,11 @@ export default function RangerDashboard() {
                 boundsActive={mapBoundsActive}
                 onBoundsActiveChange={setMapBoundsActive}
                 onBoundsChange={setMapBounds}
+                onPinClick={(sighting) => {
+                  if (sighting.alertId) {
+                    triggerReportGeneration(sighting.alertId, sighting.label ?? "Unknown species");
+                  }
+                }}
               />
             ) : (
               <DashboardView
@@ -181,6 +207,8 @@ export default function RangerDashboard() {
                 recentSightings={recentSightings}
                 sightingsPage={sightingsPage}
                 onSightingsPageChange={setSightingsPage}
+                onGenerateReport={triggerReportGeneration}
+                generatingAlertId={generating}
               />
             )}
           </main>
@@ -192,6 +220,20 @@ export default function RangerDashboard() {
           loading={guardrailMetricsLoading}
         />
       </div>
+      {modalOpen && (generating !== null || lastReport !== null) && (
+        <ReportModal
+          generating={generating !== null}
+          species={generating ? pendingReportSpecies : (lastReport?.species ?? null)}
+          reportUrl={lastReport?.reportUrl}
+          filePath={lastReport?.filePath}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
+      {error && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-ranger-apricot/40 bg-ranger-apricot/10 px-4 py-2 text-xs text-ranger-apricot">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

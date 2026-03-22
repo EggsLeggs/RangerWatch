@@ -10,10 +10,14 @@ export function RecentSightingsTable({
   sightings,
   page,
   onPageChange,
+  onGenerateReport,
+  generatingAlertId,
 }: {
   sightings: RecentSightingRow[];
   page: number;
   onPageChange: (page: number) => void;
+  onGenerateReport: (alertId: string, species: string) => void;
+  generatingAlertId: string | null;
 }) {
   const totalPages = Math.ceil(sightings.length / SIGHTINGS_PAGE_SIZE);
 
@@ -51,16 +55,28 @@ export function RecentSightingsTable({
                 </td>
                 <td className="py-3 pr-4 text-sm text-ranger-muted">{sighting.time}</td>
                 <td className="py-3">
-                  {/* TODO: wire to a context menu or detail drawer */}
-                  <button
-                    type="button"
-                    aria-label="More options"
-                    disabled
-                    aria-disabled="true"
-                    className="cursor-not-allowed text-ranger-muted opacity-40"
-                  >
-                    <Icons.MoreVertical />
-                  </button>
+                  {(() => {
+                    const alertId = sighting.alertId ?? sighting.id;
+                    const isGenerating = generatingAlertId === alertId;
+                    const isDisabled = generatingAlertId !== null && !isGenerating;
+                    return (
+                      <button
+                        type="button"
+                        aria-label={isGenerating ? "Generating report" : "Generate report"}
+                        disabled={isGenerating || isDisabled}
+                        aria-disabled={isGenerating || isDisabled}
+                        onClick={() => onGenerateReport(alertId, sighting.species)}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-ranger-border px-2.5 py-1.5 text-xs text-ranger-muted hover:text-ranger-text disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {isGenerating ? (
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border border-ranger-muted border-t-transparent" />
+                        ) : (
+                          <Icons.Report />
+                        )}
+                        {isGenerating ? "Generating..." : "Generate Report"}
+                      </button>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}
