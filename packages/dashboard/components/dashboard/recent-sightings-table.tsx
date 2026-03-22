@@ -41,13 +41,13 @@ export function RecentSightingsTable({
             </tr>
           </thead>
           <tbody>
-            {sightings.slice(page * SIGHTINGS_PAGE_SIZE, (page + 1) * SIGHTINGS_PAGE_SIZE).map((sighting) => {
+            {sightings.slice(page * SIGHTINGS_PAGE_SIZE, (page + 1) * SIGHTINGS_PAGE_SIZE).map((sighting, idx) => {
               const alertId = sighting.alertId ?? sighting.id;
               const isGenerating = generatingAlertId === alertId;
               const isDisabled = generatingAlertId !== null && !isGenerating;
               return (
               <tr
-                key={sighting.id}
+                key={`${sighting.id}-${idx}`}
                 role="button"
                 tabIndex={isDisabled ? -1 : 0}
                 aria-label={isGenerating ? `Generating report for ${sighting.species}` : `Open report for ${sighting.species}`}

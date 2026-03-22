@@ -21,6 +21,9 @@ import { DashboardView } from "./dashboard/dashboard-view";
 import { LiveMapView } from "./dashboard/live-map-view";
 import { ReportModal } from "./dashboard/report-modal";
 import { ReportsView } from "./dashboard/reports-view";
+import { WildlifeStatsView } from "./dashboard/wildlife-stats-view";
+import { SpeciesIndexView } from "./dashboard/species-index-view";
+import { AnimalTrackerView } from "./dashboard/animal-tracker-view";
 import type { MapSighting } from "./live-map";
 import type { DashboardView as DashboardViewType, NavSection } from "./dashboard/types";
 
@@ -127,9 +130,24 @@ export default function RangerDashboard() {
       {
         title: "WILDLIFE",
         items: [
-          { name: "Animal Tracker", icon: <Icons.Animal />, active: false },
-          { name: "Species Index", icon: <Icons.Species />, active: false },
-          { name: "Sighting Log", icon: <Icons.Sighting />, active: false },
+          {
+            name: "Animal Tracker",
+            icon: <Icons.Animal />,
+            active: activeView === "animal-tracker",
+            onSelect: () => setActiveView("animal-tracker"),
+          },
+          {
+            name: "Species Index",
+            icon: <Icons.Species />,
+            active: activeView === "species-index",
+            onSelect: () => setActiveView("species-index"),
+          },
+          {
+            name: "Wildlife Stats",
+            icon: <Icons.Stable />,
+            active: activeView === "wildlife-stats",
+            onSelect: () => setActiveView("wildlife-stats"),
+          },
         ],
       },
       {
@@ -177,7 +195,13 @@ export default function RangerDashboard() {
         ? "Agent logs"
         : activeView === "reports"
           ? "Reports"
-          : "Dashboard";
+          : activeView === "wildlife-stats"
+            ? "Wildlife Stats"
+            : activeView === "species-index"
+              ? "Species Index"
+              : activeView === "animal-tracker"
+                ? "Animal Tracker"
+                : "Dashboard";
 
   return (
     <div className="flex h-screen flex-col bg-ranger-bg font-sans">
@@ -209,6 +233,12 @@ export default function RangerDashboard() {
               <AgentLogsPanel />
             ) : activeView === "reports" ? (
               <ReportsView />
+            ) : activeView === "wildlife-stats" ? (
+              <WildlifeStatsView />
+            ) : activeView === "species-index" ? (
+              <SpeciesIndexView />
+            ) : activeView === "animal-tracker" ? (
+              <AnimalTrackerView />
             ) : activeView === "live-map" ? (
               <LiveMapView
                 filteredSightings={filteredMapSightings}

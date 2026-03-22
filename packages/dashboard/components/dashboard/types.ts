@@ -6,7 +6,14 @@ export type {
   GuardrailMetrics,
 } from "../../lib/types";
 
-export type DashboardView = "dashboard" | "live-map" | "agent-logs" | "reports";
+export type DashboardView =
+  | "dashboard"
+  | "live-map"
+  | "agent-logs"
+  | "reports"
+  | "wildlife-stats"
+  | "species-index"
+  | "animal-tracker";
 
 export interface NavItem {
   name: string;
