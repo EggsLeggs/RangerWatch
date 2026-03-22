@@ -6,7 +6,10 @@ import { resolve } from "path";
 // Read the root .env manually at startup so MONGODB_URI and other shared vars
 // are available to API routes in both `next dev` and `next start`.
 try {
-  const lines = readFileSync(resolve(process.cwd(), "../../.env"), "utf-8").split("\n");
+  const lines = readFileSync(
+    resolve(process.cwd(), "../../.env"),
+    "utf-8",
+  ).split("\n");
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;

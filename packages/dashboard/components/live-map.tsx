@@ -8,6 +8,7 @@ export type MapSightingSeverity = "CRITICAL" | "WARNING" | "INFO";
 
 export interface MapSighting {
   id?: string;
+  alertId?: string;
   lat: number;
   lng: number;
   level: MapSightingSeverity;
@@ -36,11 +37,13 @@ function zoneIdFromCoords(lat: number, lng: number): string {
 export function LiveMap({
   sightings,
   onBoundsChange,
+  onPinClick,
   fitKey,
   hoveredZone,
 }: {
   sightings: MapSighting[];
   onBoundsChange?: (bounds: MapBounds) => void;
+  onPinClick?: (sighting: MapSighting) => void;
   fitKey?: number;
   hoveredZone?: { id: string; color: string } | null;
 }) {
@@ -139,6 +142,7 @@ export function LiveMap({
         zoneLngs.push(s.lng);
       }
 
+      m.on("click", () => onPinClick?.(s));
       markers.push(m);
     }
 
@@ -174,7 +178,7 @@ export function LiveMap({
         mapRef.current.fitBounds(group.getBounds().pad(0.25));
       });
     }
-  }, [sightings, fitKey, hoveredZone]);
+  }, [sightings, fitKey, hoveredZone, onPinClick]);
 
   return (
     <div

@@ -31,6 +31,7 @@ export function LiveMapView({
   onBoundsActiveChange,
   onBoundsChange,
   zones,
+  onPinClick,
 }: {
   filteredSightings: MapSighting[];
   allSightingsCount: number;
@@ -45,6 +46,7 @@ export function LiveMapView({
   onBoundsActiveChange: (active: boolean) => void;
   onBoundsChange: (bounds: MapBounds) => void;
   zones: ZoneData[];
+  onPinClick?: (sighting: MapSighting) => void;
 }) {
   const [zonesOverlay, setZonesOverlay] = useState(true);
   const [hoveredZone, setHoveredZone] = useState<{ id: string; color: string } | null>(null);
@@ -172,6 +174,7 @@ export function LiveMapView({
           <LiveMap
             sightings={filteredSightings}
             onBoundsChange={onBoundsChange}
+            onPinClick={onPinClick}
             fitKey={fitKey}
             hoveredZone={hoveredZone}
           />

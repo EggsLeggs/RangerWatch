@@ -37,6 +37,8 @@ export function DashboardView({
   civicActive,
   civicTotalToolCallsAudited,
   civicInjectionsBlocked,
+  onGenerateReport,
+  generatingAlertId,
 }: {
   isMobile: boolean;
   isDesktop: boolean;
@@ -63,6 +65,8 @@ export function DashboardView({
   civicActive: boolean;
   civicTotalToolCallsAudited: number;
   civicInjectionsBlocked: number;
+  onGenerateReport: (alertId: string, species: string) => void;
+  generatingAlertId: string | null;
 }) {
   const cardsVisible = useStaggeredMount(3, 150);
 
@@ -131,6 +135,8 @@ export function DashboardView({
           sightings={recentSightings}
           page={sightingsPage}
           onPageChange={onSightingsPageChange}
+          onGenerateReport={onGenerateReport}
+          generatingAlertId={generatingAlertId}
         />
       </div>
 
