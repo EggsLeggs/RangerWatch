@@ -31,16 +31,6 @@ export function Sidebar({
         )}
       </div>
 
-      <div className="border-b border-ranger-border p-4">
-        <button className="flex w-full items-center justify-between rounded-lg bg-ranger-border/50 p-3 text-left">
-          <div>
-            <div className="text-sm font-medium text-ranger-text">Serengeti Reserve</div>
-            <div className="text-xs text-ranger-muted">12 zones monitored</div>
-          </div>
-          <span className="text-ranger-text"><Icons.ChevronDown /></span>
-        </button>
-      </div>
-
       <nav className="flex-1 overflow-y-auto p-3">
         {navSections.map((section) => (
           <div key={section.title} className="mb-4">
