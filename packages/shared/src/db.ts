@@ -2,6 +2,7 @@ import { MongoClient, type Db, type Collection, type Document } from "mongodb";
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
+let connectPromise: Promise<Db> | null = null;
 
 export const COLLECTIONS = {
   SIGHTINGS: "sightings",
@@ -14,12 +15,20 @@ export const COLLECTIONS = {
 
 export async function connectDB(): Promise<Db> {
   if (db) return db;
-  const uri = process.env.MONGODB_URI?.trim();
-  if (!uri) throw new Error("missing required environment variable: MONGODB_URI.");
-  client = new MongoClient(uri);
-  await client.connect();
-  db = client.db("rangerai");
-  return db;
+  if (!connectPromise) {
+    connectPromise = (async () => {
+      const uri = process.env.MONGODB_URI?.trim();
+      if (!uri) throw new Error("missing required environment variable: MONGODB_URI.");
+      client = new MongoClient(uri);
+      await client.connect();
+      db = client.db("rangerai");
+      return db;
+    })().catch((err) => {
+      connectPromise = null;
+      throw err;
+    });
+  }
+  return connectPromise;
 }
 
 export async function getCollection<T extends Document>(name: string): Promise<Collection<T>> {

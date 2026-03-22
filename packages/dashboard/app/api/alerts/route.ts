@@ -76,8 +76,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "invalid alert payload" }, { status: 400 });
   }
 
+  const receivedAt = new Date().toISOString();
   const queue = getQueue();
-  queue.push({ alert: body, receivedAt: new Date().toISOString() });
+  queue.push({ alert: body, receivedAt });
   if (queue.length > MAX_QUEUE) {
     queue.splice(0, queue.length - MAX_QUEUE);
   }
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
       const col = await getCollection(COLLECTIONS.ALERTS);
       await col.updateOne(
         { alertId: body.alertId },
-        { $set: { ...body, receivedAt: new Date().toISOString() } },
+        { $set: { ...body, receivedAt } },
         { upsert: true }
       );
     } catch { /* db write must not crash SSE */ }

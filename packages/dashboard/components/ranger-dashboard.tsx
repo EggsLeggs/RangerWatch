@@ -751,7 +751,7 @@ export default function RangerDashboard() {
             if (typeof a.lat !== "number" || typeof a.lng !== "number") continue;
             const rawDate = a.dispatchedAt ?? a.receivedAt;
             const receivedAt = rawDate ? new Date(rawDate as string) : null;
-            if (!receivedAt || receivedAt.toDateString() !== today) continue;
+            if (!receivedAt || isNaN(receivedAt.getTime()) || receivedAt.toDateString() !== today) continue;
             rows.push({
               id: a.alertId,
               zone: zoneIdFromCoords(a.lat, a.lng),

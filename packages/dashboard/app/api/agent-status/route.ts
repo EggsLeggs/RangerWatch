@@ -32,6 +32,9 @@ export async function GET() {
       }
 
       const reader = upstream.body.getReader();
+      const heartbeat = setInterval(() => {
+        try { controller.enqueue(encoder.encode(": heartbeat\n\n")); } catch { /* closed */ }
+      }, 25_000);
       try {
         while (true) {
           const { done, value } = await reader.read();
@@ -41,6 +44,7 @@ export async function GET() {
       } catch {
         /* upstream closed */
       } finally {
+        clearInterval(heartbeat);
         reader.cancel();
         controller.close();
       }

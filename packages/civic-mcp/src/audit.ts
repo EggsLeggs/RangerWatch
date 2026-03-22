@@ -13,9 +13,9 @@ export function logEntry(result: GuardrailResult): void {
   }
   (async () => {
     try {
-      const { getCollection } = await import("@rangerai/shared");
-      const col = await getCollection("guardrail_events");
-      await col.insertOne({ ...result });
+      const { getCollection, COLLECTIONS } = await import("@rangerai/shared");
+      const col = await getCollection(COLLECTIONS.GUARDRAIL_EVENTS);
+      await col.insertOne({ ...result, timestamp: new Date() });
     } catch { /* never throw from audit logging */ }
   })();
 }

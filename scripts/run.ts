@@ -568,6 +568,7 @@ Bun.serve({
         });
       }
       log("alert", `generating report for ${lastScoredSighting.species}`, "active");
+      const reportSpecies = lastScoredSighting.species;
       generateReport([lastScoredSighting])
         .then((filePath) => {
           log("alert", `report ready: ${filePath}`, "idle");
@@ -578,7 +579,7 @@ Bun.serve({
               await col.insertOne({
                 filePath,
                 generatedAt: new Date(),
-                species: lastScoredSighting!.species,
+                species: reportSpecies,
                 sightingCount: 1,
               });
             } catch (err) { console.error("[run] db report insert error:", err); }
@@ -593,6 +594,9 @@ Bun.serve({
     }
 
     if (pathname === "/reset-db" && req.method === "POST") {
+      if (process.env.NODE_ENV === "production") {
+        return new Response(JSON.stringify({ error: "db reset not available in production" }), { status: 403, headers: { "Content-Type": "application/json" } });
+      }
       try {
         const database = await connectDB();
         for (const name of Object.values(COLLECTIONS)) {
