@@ -8,10 +8,12 @@
     ".": "./src/index.ts",
     "./env": "./src/env.ts",
     "./mcp-port": "./src/mcp-port.ts",
+    "./db": "./src/db.ts",
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "mongodb": "^7.1.0"
   },
   "scripts": {
     "lint": "eslint src",

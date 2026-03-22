@@ -167,6 +167,13 @@ export async function dispatchEmail(alert: Alert): Promise<boolean> {
     }
 
     console.log(`[alert-agent] email dispatched via Resend to ${to}`);
+    (async () => {
+      try {
+        const { getCollection, COLLECTIONS } = await import("@rangerai/shared");
+        const col = await getCollection(COLLECTIONS.ALERTS);
+        await col.updateOne({ alertId: alert.alertId }, { $set: { emailSent: true } });
+      } catch { /* never throw from audit-adjacent writes */ }
+    })();
     alertEvents.emit(ALERT_DISPATCHED, {
       type: "alert:dispatched",
       payload: { alert, method: "email" },

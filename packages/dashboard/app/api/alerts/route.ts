@@ -84,6 +84,18 @@ export async function POST(req: Request) {
 
   broadcast({ type: "alert", alert: body });
 
+  (async () => {
+    try {
+      const { getCollection, COLLECTIONS } = await import("@rangerai/shared/db");
+      const col = await getCollection(COLLECTIONS.ALERTS);
+      await col.updateOne(
+        { alertId: body.alertId },
+        { $set: { ...body, receivedAt: new Date().toISOString() } },
+        { upsert: true }
+      );
+    } catch { /* db write must not crash SSE */ }
+  })();
+
   return Response.json({ ok: true, id: body.alertId });
 }
 

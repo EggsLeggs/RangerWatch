@@ -11,6 +11,13 @@ export function logEntry(result: GuardrailResult): void {
   } else {
     console.log("[civic-mcp] passed:", result.toolName ?? "unknown");
   }
+  (async () => {
+    try {
+      const { getCollection } = await import("@rangerai/shared");
+      const col = await getCollection("guardrail_events");
+      await col.insertOne({ ...result });
+    } catch { /* never throw from audit logging */ }
+  })();
 }
 
 export function getAuditLog(): { total: number; blocked: number; entries: GuardrailResult[] } {

@@ -69,13 +69,14 @@ function useWindowSize() {
 
 function useCountUp(target: number, duration: number = 1500) {
   const [count, setCount] = useState(0);
+  const currentRef = useRef(0);
   const startTimeRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const startValue = currentRef.current;
     startTimeRef.current = null;
-    setCount(0);
 
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
@@ -84,11 +85,15 @@ function useCountUp(target: number, duration: number = 1500) {
       const elapsed = timestamp - startTimeRef.current;
       const progress = Math.min(elapsed / duration, 1);
       const easedProgress = easeOutCubic(progress);
-
-      setCount(Math.floor(easedProgress * target));
+      const next = Math.floor(startValue + easedProgress * (target - startValue));
+      currentRef.current = next;
+      setCount(next);
 
       if (progress < 1) {
         rafRef.current = requestAnimationFrame(animate);
+      } else {
+        currentRef.current = target;
+        setCount(target);
       }
     };
 
@@ -132,11 +137,46 @@ function useStaggeredMount(itemCount: number, baseDelay: number = 100) {
 type DashboardView = "dashboard" | "live-map";
 
 const INITIAL_AGENT_PIPELINE = [
-  { name: "Ingest Agent", status: "Polling", color: "#4a7c5a" },
-  { name: "Vision Agent", status: "Classifying", color: "#4a7c5a" },
-  { name: "Threat Agent", status: "1 Warning", color: "#B86F0A" },
-  { name: "Alert Agent", status: "Active", color: "#4a7c5a" },
+  { agentId: "ingest", name: "Ingest Agent", status: "Idle", color: "#4a7c5a" },
+  { agentId: "vision", name: "Vision Agent", status: "Idle", color: "#4a7c5a" },
+  { agentId: "threat", name: "Threat Agent", status: "Idle", color: "#4a7c5a" },
+  { agentId: "alert",  name: "Alert Agent",  status: "Idle", color: "#4a7c5a" },
 ];
+
+function agentStatusColor(status: string): string {
+  if (status === "active") return "#5a9fd4";
+  if (status === "error")  return "#d45a5a";
+  return "#4a7c5a";
+}
+
+function agentStatusLabel(agentStatus: string, message: string | null): string {
+  if (agentStatus === "error") return "Error";
+  if (agentStatus === "idle")  return "Idle";
+  if (!message) return "Active";
+  const m = message.trim();
+  const n = m.match(/\d+/)?.[0];
+  if (/received/i.test(m) && n)       return `${n} new`;
+  if (/poll|trigger/i.test(m))        return "Polling";
+  if (/paused/i.test(m))              return "Paused";
+  if (/classif/i.test(m) && !/:\s/.test(m)) return "Classifying";
+  if (/classified/i.test(m)) {
+    const s = m.match(/classified[:\s]+([A-Za-z]+)/i)?.[1];
+    return s ?? "Classified";
+  }
+  if (/^scoring/i.test(m))            return "Scoring";
+  if (/^scored/i.test(m)) {
+    const lvl = m.match(/level=(\w+)/i)?.[1];
+    return lvl ?? "Scored";
+  }
+  if (/dispatching/i.test(m)) {
+    const lvl = m.match(/\[(\w+)\]/)?.[1];
+    return lvl ? lvl[0] + lvl.slice(1).toLowerCase() : "Dispatching";
+  }
+  if (/dispatched/i.test(m))          return "Dispatched";
+  if (/generating/i.test(m))          return "Generating";
+  if (/report ready/i.test(m))        return "Ready";
+  return "Active";
+}
 
 // deterministic demo data - avoids hydration mismatches
 const sightingData = Array.from({ length: 30 }, (_, i) => ({
@@ -159,6 +199,7 @@ interface RecentSightingRow {
   species: string;
   threat: string;
   time: string;
+  receivedAt?: Date;
 }
 
 const INITIAL_RECENT_SIGHTINGS: RecentSightingRow[] = [
@@ -201,6 +242,35 @@ function buildFrequencySeries(totalHours: number) {
   }));
 }
 
+const SIGHTINGS_KEY = "rangerai:recent-sightings";
+
+type StoredSighting = Omit<RecentSightingRow, "receivedAt"> & { receivedAt: string };
+
+function loadPersistedSightings(): RecentSightingRow[] {
+  try {
+    const raw = localStorage.getItem(SIGHTINGS_KEY);
+    if (!raw) return [];
+    const stored = JSON.parse(raw) as StoredSighting[];
+    return stored.map((s) => {
+      const receivedAt = new Date(s.receivedAt);
+      return { ...s, receivedAt, time: formatRelativeTime(receivedAt) };
+    });
+  } catch {
+    return [];
+  }
+}
+
+function persistSightings(sightings: RecentSightingRow[]): void {
+  try {
+    const live = sightings.filter((s) => s.receivedAt);
+    if (!live.length) return;
+    const payload: StoredSighting[] = live
+      .slice(0, 50)
+      .map((s) => ({ ...s, receivedAt: s.receivedAt!.toISOString() }));
+    localStorage.setItem(SIGHTINGS_KEY, JSON.stringify(payload));
+  } catch { /* ignore */ }
+}
+
 function zoneIdFromCoords(lat: number, lng: number): string {
   const n = Math.abs(Math.floor(lat * 10 + lng * 10)) % 99;
   return `ZN-${String(n).padStart(2, "0")}`;
@@ -209,6 +279,15 @@ function zoneIdFromCoords(lat: number, lng: number): string {
 function threatToMapLevel(t: string): MapSighting["level"] {
   if (t === "CRITICAL" || t === "WARNING" || t === "INFO") return t;
   return "INFO";
+}
+
+function formatRelativeTime(d: Date): string {
+  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} hr${hours === 1 ? "" : "s"} ago`;
 }
 
 // chart theme - colours matched to dark forest palette
@@ -447,6 +526,8 @@ export default function RangerDashboard() {
   const [activeView, setActiveView] = useState<DashboardView>("dashboard");
   const [agentPipeline, setAgentPipeline] = useState(INITIAL_AGENT_PIPELINE);
   const [recentSightings, setRecentSightings] = useState(INITIAL_RECENT_SIGHTINGS);
+  const [sightingsPage, setSightingsPage] = useState(0);
+  const SIGHTINGS_PAGE_SIZE = 10;
   const [mapSightings, setMapSightings] = useState<MapSighting[]>(DEMO_MAP_SIGHTINGS);
   const [streamLive, setStreamLive] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -457,6 +538,7 @@ export default function RangerDashboard() {
   });
   const [guardrailActive, setGuardrailActive] = useState(true);
   const [guardrailMetricsLoading, setGuardrailMetricsLoading] = useState(true);
+  const [paused, setPaused] = useState(false);
   const cardsVisible = useStaggeredMount(3, 150);
   const zonesVisible = useStaggeredMount(4, 100);
   const zoneAnimalCount = useCountUp(847, 1500);
@@ -467,6 +549,36 @@ export default function RangerDashboard() {
     [pointsToShow]
   );
   const frequencyXInterval = Math.max(0, Math.min(47, Math.floor(pointsToShow / 12) - 1));
+
+  const [alertsToday, setAlertsToday] = useState(0);
+  const todayAlertIdsRef = useRef<Set<string>>(new Set());
+
+  // restore recent sightings from localStorage on mount
+  useEffect(() => {
+    const persisted = loadPersistedSightings();
+    if (persisted.length > 0) setRecentSightings(persisted);
+  }, []);
+
+  // persist live sightings whenever the list changes
+  useEffect(() => {
+    persistSightings(recentSightings);
+  }, [recentSightings]);
+
+  // restore today's alert count from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("rangerai:alerts-today");
+      if (!raw) return;
+      const stored = JSON.parse(raw) as { date: string; ids: string[] };
+      if (stored.date !== new Date().toDateString()) {
+        localStorage.removeItem("rangerai:alerts-today");
+        return;
+      }
+      const ids = new Set(stored.ids);
+      todayAlertIdsRef.current = ids;
+      setAlertsToday(ids.size);
+    } catch { /* ignore */ }
+  }, []);
 
   const navSections = useMemo((): NavSection[] => {
     return [
@@ -525,20 +637,35 @@ export default function RangerDashboard() {
           ? a.alertId
           : crypto.randomUUID();
 
+      const now = new Date();
       setStreamLive(true);
       setStreamError(null);
-      setRecentSightings((prev) =>
-        [
+      setSightingsPage(0);
+      setRecentSightings((prev) => {
+        if (prev.some((s) => s.id === rowId)) return prev;
+        return [
           {
             id: rowId,
             zone: zoneIdFromCoords(lat, lng),
             species,
             threat: threatLevel,
-            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            time: formatRelativeTime(now),
+            receivedAt: now,
           },
           ...prev,
-        ].slice(0, 20)
-      );
+        ].slice(0, 50);
+      });
+
+      if (!todayAlertIdsRef.current.has(rowId)) {
+        todayAlertIdsRef.current.add(rowId);
+        setAlertsToday(todayAlertIdsRef.current.size);
+        try {
+          localStorage.setItem("rangerai:alerts-today", JSON.stringify({
+            date: now.toDateString(),
+            ids: [...todayAlertIdsRef.current],
+          }));
+        } catch { /* ignore */ }
+      }
 
       setMapSightings((prev) =>
         [
@@ -597,6 +724,8 @@ export default function RangerDashboard() {
       };
     };
 
+    // SSE GET /api/alerts is unauthenticated by design (read-only stream);
+    // auth (x-api-key) is enforced only on the POST side in webhook.ts
     connect();
 
     return () => {
@@ -604,6 +733,47 @@ export default function RangerDashboard() {
       if (reconnectTimer !== null) clearTimeout(reconnectTimer);
       es?.close();
     };
+  }, []);
+
+  // hydrate recentSightings from Atlas history on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/alerts/history");
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { alerts?: Record<string, unknown>[] };
+        const today = new Date().toDateString();
+        const rows: RecentSightingRow[] = [];
+        if (data.alerts?.length) {
+          for (const a of data.alerts) {
+            if (typeof a.alertId !== "string" || typeof a.species !== "string") continue;
+            if (typeof a.lat !== "number" || typeof a.lng !== "number") continue;
+            const rawDate = a.dispatchedAt ?? a.receivedAt;
+            const receivedAt = rawDate ? new Date(rawDate as string) : null;
+            if (!receivedAt || receivedAt.toDateString() !== today) continue;
+            rows.push({
+              id: a.alertId,
+              zone: zoneIdFromCoords(a.lat, a.lng),
+              species: a.species,
+              threat: typeof a.threatLevel === "string" ? a.threatLevel : "INFO",
+              time: formatRelativeTime(receivedAt),
+              receivedAt,
+            });
+          }
+        }
+        if (cancelled) return;
+        if (rows.length) {
+          setRecentSightings((prev) => {
+            const existingIds = new Set(prev.map((s) => s.id));
+            const fresh = rows.filter((r) => !existingIds.has(r.id));
+            if (!fresh.length) return prev;
+            return [...fresh, ...prev].slice(0, 50);
+          });
+        }
+      } catch { /* ignore — history is best-effort */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -633,7 +803,7 @@ export default function RangerDashboard() {
       } finally {
         if (!cancelled) {
           setGuardrailMetricsLoading(false);
-          timeoutId = setTimeout(() => { void poll(); }, 15_000);
+          timeoutId = setTimeout(() => { void poll(); }, 10_000);
         }
       }
     }
@@ -642,6 +812,93 @@ export default function RangerDashboard() {
     return () => {
       cancelled = true;
       if (timeoutId !== null) clearTimeout(timeoutId);
+    };
+  }, []);
+
+  useEffect(() => {
+    let closed = false;
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+
+    const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+    const applyAgentUpdate = (agentId: string, agentStatus: string, message: string | null) => {
+      const existing = debounceTimers.get(agentId);
+      if (existing) clearTimeout(existing);
+      const timer = setTimeout(() => {
+        debounceTimers.delete(agentId);
+        setAgentPipeline((prev) =>
+          prev.map((p) =>
+            p.agentId === agentId
+              ? { ...p, status: agentStatusLabel(agentStatus, message), color: agentStatusColor(agentStatus) }
+              : p
+          )
+        );
+      }, 400);
+      debounceTimers.set(agentId, timer);
+    };
+
+    const connect = () => {
+      if (closed) return;
+      es?.close();
+      es = new EventSource("/api/agent-status");
+      es.onmessage = (ev: MessageEvent) => {
+        let msg: Record<string, unknown>;
+        try {
+          msg = JSON.parse(ev.data) as Record<string, unknown>;
+        } catch {
+          return;
+        }
+        attempt = 0;
+
+        if (msg.type === "unavailable") return;
+
+        if (msg.type === "paused" && typeof msg.paused === "boolean") {
+          setPaused(msg.paused);
+          return;
+        }
+
+        if (msg.type === "init" && msg.state && typeof msg.state === "object") {
+          const s = msg.state as Record<string, { status: string; logs: string[] }>;
+          setAgentPipeline((prev) =>
+            prev.map((p) => {
+              const a = s[p.agentId];
+              if (!a) return p;
+              const lastLog = a.logs.at(-1) ?? null;
+              const lastMsg = lastLog ? lastLog.replace(/^\[[^\]]+\]\s*/, "") : null;
+              return { ...p, status: agentStatusLabel(a.status, lastMsg), color: agentStatusColor(a.status) };
+            })
+          );
+          if (typeof msg.paused === "boolean") setPaused(msg.paused);
+          return;
+        }
+
+        // per-agent update: { agent, message, status, count, timestamp }
+        if (typeof msg.agent === "string" && typeof msg.status === "string") {
+          const agentId = msg.agent;
+          const agentStatus = msg.status;
+          const message = typeof msg.message === "string" ? msg.message : null;
+          applyAgentUpdate(agentId, agentStatus, message);
+        }
+      };
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        if (closed) return;
+        attempt += 1;
+        const delay = Math.min(30_000, 1000 * 2 ** Math.min(attempt - 1, 5));
+        reconnectTimer = setTimeout(connect, delay);
+      };
+    };
+
+    connect();
+    return () => {
+      closed = true;
+      if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+      for (const t of debounceTimers.values()) clearTimeout(t);
+      debounceTimers.clear();
+      es?.close();
     };
   }, []);
 
@@ -723,12 +980,18 @@ export default function RangerDashboard() {
                   >
                     <span
                       className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: agent.color }}
+                      style={{ backgroundColor: agent.color, transition: "background-color 400ms ease" }}
                     />
                     <span className="text-xs text-ranger-muted">{agent.name}</span>
                     <span className="text-xs font-medium text-ranger-text">{agent.status}</span>
                   </div>
                 ))}
+                {paused && (
+                  <div className="flex items-center gap-2 rounded-full border border-[#c04a4a] bg-[#7a2020] px-3 py-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[#f08080]" />
+                    <span className="text-xs font-medium text-[#ffd0d0] uppercase tracking-widest">Paused</span>
+                  </div>
+                )}
               </div>
               <div
                 className="flex shrink-0 items-center gap-2"
@@ -775,6 +1038,7 @@ export default function RangerDashboard() {
               <>
             {/* Stat Cards */}
             <div className={`mb-6 grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-3"}`}>
+              {/* TODO: replace with live count from /api/stats once endpoint exists */}
               <StatCard
                 title="Active Zones"
                 value={3}
@@ -783,6 +1047,7 @@ export default function RangerDashboard() {
                 visible={cardsVisible[0]}
                 delay={0}
               />
+              {/* TODO: replace with live count from /api/stats once endpoint exists */}
               <StatCard
                 title="Species Tracked"
                 value={847}
@@ -793,8 +1058,8 @@ export default function RangerDashboard() {
               />
               <StatCard
                 title="Alerts Today"
-                value={14}
-                subtitle="6 resolved, 8 open"
+                value={alertsToday}
+                subtitle="from live alert stream"
                 trend="down"
                 visible={cardsVisible[2]}
                 delay={200}
@@ -983,12 +1248,17 @@ export default function RangerDashboard() {
 
               {/* Recent Sightings */}
               <div className="rounded-xl border border-ranger-border bg-ranger-card p-5">
-                <h2 className="mb-4 text-lg font-semibold text-ranger-text">Recent Sightings</h2>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-ranger-text">Recent Sightings</h2>
+                  <span className="text-xs text-ranger-muted">
+                    {recentSightings.length === 0 ? "0" : `${sightingsPage * SIGHTINGS_PAGE_SIZE + 1}–${Math.min((sightingsPage + 1) * SIGHTINGS_PAGE_SIZE, recentSightings.length)}`} of {recentSightings.length}
+                  </span>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-ranger-border text-left text-xs uppercase text-ranger-muted">
-                        <th className="pb-3 pr-4">Zone</th>
+                        <th className="pb-3 pr-4 w-28">Zone</th>
                         <th className="pb-3 pr-4">Species</th>
                         <th className="pb-3 pr-4">Threat</th>
                         <th className="pb-3 pr-4">Time</th>
@@ -996,19 +1266,14 @@ export default function RangerDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {recentSightings.map((sighting) => (
+                      {recentSightings.slice(sightingsPage * SIGHTINGS_PAGE_SIZE, (sightingsPage + 1) * SIGHTINGS_PAGE_SIZE).map((sighting) => (
                         <tr
                           key={sighting.id}
                           className="border-b border-ranger-border/50 last:border-0"
                         >
-                          <td className="py-3 pr-4 text-sm text-ranger-muted">{sighting.zone}</td>
+                          <td className="py-3 pr-4 w-28 text-sm text-ranger-muted">{sighting.zone}</td>
                           <td className="py-3 pr-4">
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-ranger-border text-xs font-medium text-ranger-text">
-                                {sighting.species[0]}
-                              </div>
-                              <span className="text-sm text-ranger-text">{sighting.species}</span>
-                            </div>
+                            <span className="text-sm text-ranger-text">{sighting.species}</span>
                           </td>
                           <td className="py-3 pr-4">
                             <ThreatBadge level={sighting.threat} />
@@ -1024,6 +1289,27 @@ export default function RangerDashboard() {
                     </tbody>
                   </table>
                 </div>
+                {recentSightings.length > SIGHTINGS_PAGE_SIZE && (
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => setSightingsPage((p) => Math.max(0, p - 1))}
+                      disabled={sightingsPage === 0}
+                      className="rounded-lg border border-ranger-border px-3 py-1.5 text-xs text-ranger-muted hover:text-ranger-text disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      Prev
+                    </button>
+                    <span className="text-xs text-ranger-muted">
+                      {sightingsPage + 1} / {Math.ceil(recentSightings.length / SIGHTINGS_PAGE_SIZE)}
+                    </span>
+                    <button
+                      onClick={() => setSightingsPage((p) => Math.min(Math.ceil(recentSightings.length / SIGHTINGS_PAGE_SIZE) - 1, p + 1))}
+                      disabled={(sightingsPage + 1) * SIGHTINGS_PAGE_SIZE >= recentSightings.length}
+                      className="rounded-lg border border-ranger-border px-3 py-1.5 text-xs text-ranger-muted hover:text-ranger-text disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
               </>

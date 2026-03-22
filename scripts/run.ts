@@ -7,8 +7,9 @@ import {
 } from "@rangerai/ingest-agent";
 import { processSighting as visionProcess } from "@rangerai/vision-agent";
 import { processSighting as threatProcess } from "@rangerai/threat-agent";
-import { dispatchAlert, generateReport } from "@rangerai/alert-agent";
+import { dispatchAlert, generateReport, alertEvents, ALERT_DISPATCHED } from "@rangerai/alert-agent";
 import type { ClassifiedSighting, ScoredSighting } from "@rangerai/shared";
+import { connectDB, getCollection, COLLECTIONS } from "@rangerai/shared";
 import { basename } from "node:path";
 
 // ── monitoring state ───────────────────────────────────────────────────────
@@ -70,6 +71,9 @@ console.log("[boot] starting civic-mcp server...");
 await startCivicMcpServer();
 console.log("[boot] civic-mcp ready");
 
+await connectDB();
+console.log("[boot] mongodb connected");
+
 console.log("[boot] wiring agent pipeline...");
 
 // ── pipeline wiring ────────────────────────────────────────────────────────
@@ -78,6 +82,13 @@ ingestEvents.on(AGENT_NEW_SIGHTINGS, async (event) => {
   try {
     const sightings = event.payload.sightings;
     log("ingest", `received ${sightings.length} sighting(s)`, "active");
+
+    try {
+      const col = await getCollection(COLLECTIONS.SIGHTINGS);
+      for (const s of sightings) {
+        await col.updateOne({ id: s.id, source: s.source }, { $set: s }, { upsert: true });
+      }
+    } catch (err) { console.error("[run] db sightings upsert error:", err); }
 
     for (const sighting of sightings) {
       if (paused) {
@@ -99,6 +110,11 @@ ingestEvents.on(AGENT_NEW_SIGHTINGS, async (event) => {
         continue;
       }
 
+      try {
+        const col = await getCollection(COLLECTIONS.CLASSIFIED);
+        await col.updateOne({ id: classified.id }, { $set: classified }, { upsert: true });
+      } catch (err) { console.error("[run] db classified upsert error:", err); }
+
       // threat
       let scored: ScoredSighting;
       try {
@@ -113,6 +129,11 @@ ingestEvents.on(AGENT_NEW_SIGHTINGS, async (event) => {
         log("threat", `error ${classified.species}: ${String(err)}`, "error");
         continue;
       }
+
+      try {
+        const col = await getCollection(COLLECTIONS.SCORED);
+        await col.updateOne({ id: scored.id }, { $set: scored }, { upsert: true });
+      } catch (err) { console.error("[run] db scored upsert error:", err); }
 
       // alert
       lastScoredSighting = scored;
@@ -129,6 +150,18 @@ ingestEvents.on(AGENT_NEW_SIGHTINGS, async (event) => {
   } catch (err) {
     log("ingest", `pipeline error: ${String(err)}`, "error");
   }
+});
+
+alertEvents.on(ALERT_DISPATCHED, async (event) => {
+  const { alert } = event.payload;
+  try {
+    const col = await getCollection(COLLECTIONS.ALERTS);
+    await col.updateOne(
+      { alertId: alert.alertId },
+      { $set: { ...alert, webhookSent: true }, $setOnInsert: { emailSent: false } },
+      { upsert: true }
+    );
+  } catch (err) { console.error("[run] db alert upsert error:", err); }
 });
 
 console.log("[boot] starting ingest agent (Amboseli)...");
@@ -237,6 +270,7 @@ h1 {
     <button id="btn-pause">pause</button>
     <button id="btn-report">generate report</button>
     <button id="btn-export">export logs</button>
+    <button id="btn-reset-db" style="border-color:#8a2a2a;color:#d45a5a;">reset db</button>
   </div>
 </div>
 <style>
@@ -299,6 +333,15 @@ button:disabled { opacity: 0.4; cursor: default; }
       <span>last: <b id="last-alert">&mdash;</b></span>
     </div>
     <div class="log-box" id="log-alert"></div>
+  </div>
+</div>
+<div class="panel" style="margin-top:12px;">
+  <div class="panel-header">
+    <span class="agent-name" style="color:#a07ae0;">mongodb</span>
+    <span style="font-size:10px;color:#4a7a5a;letter-spacing:1px;text-transform:uppercase;">rangerai db</span>
+  </div>
+  <div id="db-stats" style="display:flex;flex-wrap:wrap;gap:12px;padding-top:4px;font-size:12px;">
+    <span style="color:#4a7a5a;">loading&hellip;</span>
   </div>
 </div>
 <script>
@@ -366,6 +409,7 @@ document.getElementById("btn-test").addEventListener("click", triggerTest);
 document.getElementById("btn-pause").addEventListener("click", togglePause);
 document.getElementById("btn-report").addEventListener("click", triggerReport);
 document.getElementById("btn-export").addEventListener("click", exportLogs);
+document.getElementById("btn-reset-db").addEventListener("click", resetDb);
 es.onopen = () => {
   document.querySelector("h1").textContent = "RangerAI \u00b7 dev monitor";
 };
@@ -421,6 +465,42 @@ async function triggerTest() {
     btn.textContent = "trigger poll now";
   }
 }
+async function resetDb() {
+  if (!confirm("Delete all documents from every MongoDB collection?")) return;
+  const btn = document.getElementById("btn-reset-db");
+  btn.disabled = true;
+  btn.textContent = "resetting\u2026";
+  try {
+    const res = await fetch("/reset-db", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      alert("reset failed: " + (data.error ?? res.status));
+    } else {
+      await fetchDbStats();
+    }
+  } catch (err) {
+    alert("reset failed: " + err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "reset db";
+  }
+}
+async function fetchDbStats() {
+  try {
+    const res = await fetch("/db-stats");
+    if (!res.ok) return;
+    const counts = await res.json();
+    const panel = document.getElementById("db-stats");
+    panel.innerHTML = Object.entries(counts).map(([name, count]) =>
+      '<span style="background:#0d1f16;border:1px solid #2a5a3a;border-radius:4px;padding:4px 10px;">' +
+      '<span style="color:#4a7a5a;">' + esc(name) + '</span>' +
+      ' <b style="color:#c8dcc8;">' + count + '</b>' +
+      '</span>'
+    ).join("");
+  } catch { /* ignore */ }
+}
+fetchDbStats();
+setInterval(fetchDbStats, 10_000);
 </script>
 </body>
 </html>`;
@@ -439,7 +519,7 @@ Bun.serve({
           clients.add(ctrl);
           ctrl.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "init", state })}\n\n`,
+              `data: ${JSON.stringify({ type: "init", state, paused })}\n\n`,
             ),
           );
         },
@@ -492,6 +572,17 @@ Bun.serve({
         .then((filePath) => {
           log("alert", `report ready: ${filePath}`, "idle");
           broadcast({ type: "report", filePath });
+          (async () => {
+            try {
+              const col = await getCollection(COLLECTIONS.REPORTS);
+              await col.insertOne({
+                filePath,
+                generatedAt: new Date(),
+                species: lastScoredSighting!.species,
+                sightingCount: 1,
+              });
+            } catch (err) { console.error("[run] db report insert error:", err); }
+          })();
         })
         .catch((err) => {
           log("alert", `report error: ${String(err)}`, "error");
@@ -499,6 +590,31 @@ Bun.serve({
       return new Response(JSON.stringify({ ok: true, species: lastScoredSighting.species }), {
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    if (pathname === "/reset-db" && req.method === "POST") {
+      try {
+        const database = await connectDB();
+        for (const name of Object.values(COLLECTIONS)) {
+          await database.collection(name).deleteMany({});
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
+    }
+
+    if (pathname === "/db-stats" && req.method === "GET") {
+      try {
+        const database = await connectDB();
+        const counts: Record<string, number> = {};
+        for (const name of Object.values(COLLECTIONS)) {
+          counts[name] = await database.collection(name).countDocuments();
+        }
+        return new Response(JSON.stringify(counts), { headers: { "Content-Type": "application/json" } });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
     }
 
     if (pathname.startsWith("/reports/")) {
