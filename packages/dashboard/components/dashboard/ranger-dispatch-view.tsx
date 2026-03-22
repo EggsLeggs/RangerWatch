@@ -27,9 +27,13 @@ function parseRow(a: Record<string, unknown>): DispatchRow | null {
     zone: zoneIdFromCoords(a.lat, a.lng),
     dispatchedAt,
     anomalyScore: typeof a.anomalyScore === "number" ? a.anomalyScore : null,
-    // stub when no Resend key configured — the alert agent logs to console instead
     method: typeof a.emailSent === "boolean" && a.emailSent ? "email" : "stub",
   };
+}
+
+function mergeRow(prev: DispatchRow[], row: DispatchRow): DispatchRow[] {
+  if (prev.some((r) => r.alertId === row.alertId)) return prev;
+  return [row, ...prev].sort((a, b) => b.dispatchedAt.getTime() - a.dispatchedAt.getTime());
 }
 
 export function RangerDispatchView() {
@@ -37,6 +41,7 @@ export function RangerDispatchView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Initial fetch for historical CRITICAL alerts
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -45,10 +50,9 @@ export function RangerDispatchView() {
         const data = (await res.json()) as { alerts?: Record<string, unknown>[]; error?: string };
         if (cancelled) return;
         if (!res.ok) { setError(data.error ?? "Failed to load dispatch log"); return; }
-        const parsed = (data.alerts ?? []).flatMap((a) => {
-          const row = parseRow(a);
-          return row ? [row] : [];
-        });
+        const parsed = (data.alerts ?? [])
+          .flatMap((a) => { const row = parseRow(a); return row ? [row] : []; })
+          .sort((a, b) => b.dispatchedAt.getTime() - a.dispatchedAt.getTime());
         setRows(parsed);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load dispatch log");
@@ -57,6 +61,22 @@ export function RangerDispatchView() {
       }
     })();
     return () => { cancelled = true; };
+  }, []);
+
+  // SSE subscription for live new alerts — filter CRITICAL and merge into state
+  useEffect(() => {
+    const es = new EventSource("/api/alerts");
+    es.onmessage = (ev: MessageEvent) => {
+      try {
+        const msg = JSON.parse(ev.data) as { type?: string; alert?: Record<string, unknown> };
+        if (msg.type !== "alert" || !msg.alert) return;
+        if (msg.alert.threatLevel !== "CRITICAL") return;
+        const row = parseRow(msg.alert);
+        if (row) setRows((prev) => mergeRow(prev, row));
+      } catch { /* ignore parse errors */ }
+    };
+    es.onerror = () => setError("Alert stream disconnected — live updates paused.");
+    return () => es.close();
   }, []);
 
   return (
@@ -122,13 +142,11 @@ export function RangerDispatchView() {
                     </td>
                     <td className="py-3 pr-4">
                       {row.method === "email" ? (
-                        <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                          style={{ background: "#4a7c5a33", color: "#4a7c5a", border: "1px solid #4a7c5a66" }}>
+                        <span className="rounded border border-ranger-moss/40 bg-ranger-moss/20 px-1.5 py-0.5 text-[10px] font-semibold text-ranger-moss">
                           email sent
                         </span>
                       ) : (
-                        <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                          style={{ background: "#9A979033", color: "#9A9790", border: "1px solid #9A979066" }}>
+                        <span className="rounded border border-ranger-muted/40 bg-ranger-muted/20 px-1.5 py-0.5 text-[10px] font-semibold text-ranger-muted">
                           stub
                         </span>
                       )}
