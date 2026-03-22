@@ -13,6 +13,7 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@rangerai/shared": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "leaflet": "^1.9.4",
     "next": "^16.0.0",

@@ -42,6 +42,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@phosphor-icons/react": "^2.1.10",
+        "@rangerai/shared": "workspace:*",
         "leaflet": "^1.9.4",
         "next": "^16.0.0",
         "react": "^19.2.0",
