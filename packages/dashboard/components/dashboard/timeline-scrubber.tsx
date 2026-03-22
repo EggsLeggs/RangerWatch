@@ -29,7 +29,7 @@ export function TimelineScrubber({
           {sightings.length > 0 &&
             sightings.map((s, i) => {
               const pct = (i / Math.max(1, sightings.length - 1)) * 100;
-              const color = THREAT_COLORS[s.threatLevel] ?? "#4a7c5a";
+              const color = THREAT_COLORS[s.threatLevel] ?? THREAT_COLORS.INFO;
               return (
                 <rect
                   key={i}

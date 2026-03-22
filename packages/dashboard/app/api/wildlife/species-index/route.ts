@@ -20,8 +20,8 @@ export async function GET() {
     const col = await getCollection(COLLECTIONS.ALERTS);
     const raw = await col.find({}).sort({ dispatchedAt: -1 }).limit(5000).toArray();
     alerts = raw as FlatAlert[];
-  } catch {
-    // fall back to queue
+  } catch (err) {
+    console.debug("DB query failed, falling back to queue", err);
   }
 
   if (alerts.length === 0) {

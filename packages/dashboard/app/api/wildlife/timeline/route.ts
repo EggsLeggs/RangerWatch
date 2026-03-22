@@ -62,8 +62,15 @@ export async function GET(request: Request) {
 
   const sightings = alerts.map((a) => {
     const raw = a["dispatchedAt"] ?? a["receivedAt"] ?? a["timestamp"];
+    let timestamp: string | null = null;
+    if (raw) {
+      const ms = typeof raw === "number" ? raw : Date.parse(raw as string);
+      if (!Number.isNaN(ms)) {
+        timestamp = new Date(ms).toISOString();
+      }
+    }
     return {
-      timestamp: raw ? new Date(raw as string).toISOString() : null,
+      timestamp,
       threatLevel: typeof a["threatLevel"] === "string" ? a["threatLevel"] : "INFO",
       species: typeof a["species"] === "string" ? a["species"] : null,
       alertId: typeof a["alertId"] === "string" ? a["alertId"] : null,

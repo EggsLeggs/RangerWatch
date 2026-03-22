@@ -27,6 +27,16 @@ import { AnimalTrackerView } from "./dashboard/animal-tracker-view";
 import type { MapSighting } from "./live-map";
 import type { DashboardView as DashboardViewType, NavSection } from "./dashboard/types";
 
+const PAGE_TITLES: Record<DashboardViewType, string> = {
+  "dashboard": "Dashboard",
+  "live-map": "Live Map",
+  "agent-logs": "Agent logs",
+  "reports": "Reports",
+  "wildlife-stats": "Wildlife Stats",
+  "species-index": "Species Index",
+  "animal-tracker": "Animal Tracker",
+};
+
 export default function RangerDashboard() {
   const breakpoint = useWindowSize();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -188,15 +198,6 @@ export default function RangerDashboard() {
 
   const isMobile = breakpoint === "mobile";
   const isDesktop = breakpoint === "desktop";
-  const PAGE_TITLES: Record<DashboardViewType, string> = {
-    "dashboard": "Dashboard",
-    "live-map": "Live Map",
-    "agent-logs": "Agent logs",
-    "reports": "Reports",
-    "wildlife-stats": "Wildlife Stats",
-    "species-index": "Species Index",
-    "animal-tracker": "Animal Tracker",
-  };
   const pageTitle = PAGE_TITLES[activeView] ?? "Dashboard";
 
   return (
